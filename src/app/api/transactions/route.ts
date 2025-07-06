@@ -8,16 +8,36 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { amount, description, date, category, type } = body;
 
+    console.log('Received transaction data:', { amount, description, date, category, type });
+
     // Validate amount
-    const numericAmount = parseFloat(amount);
+    let numericAmount: number;
+    if (typeof amount === 'string') {
+      // Handle string amount (with possible currency symbols and commas)
+      const cleanAmount = amount.replace(/[₹,\s]/g, '');
+      numericAmount = parseFloat(cleanAmount);
+    } else if (typeof amount === 'number') {
+      // Handle numeric amount directly
+      numericAmount = amount;
+    } else {
+      console.error('Invalid amount type:', typeof amount);
+      return NextResponse.json(
+        { error: 'Invalid amount format' },
+        { status: 400 }
+      );
+    }
+
     if (isNaN(numericAmount)) {
+      console.error('Invalid amount:', amount);
       return NextResponse.json(
         { error: 'Invalid amount' },
         { status: 400 }
       );
     }
 
-    if (numericAmount < -999999999999.99 || numericAmount > 999999999999.99) {
+    // Validate amount range
+    if (Math.abs(numericAmount) > 999999999999.99) {
+      console.error('Amount out of range:', numericAmount);
       return NextResponse.json(
         { error: 'Amount must be between -999,999,999,999.99 and 999,999,999,999.99' },
         { status: 400 }
@@ -26,6 +46,7 @@ export async function POST(request: Request) {
 
     // Validate category
     if (!transactionCategories.includes(category)) {
+      console.error('Invalid category:', category);
       return NextResponse.json(
         { error: 'Invalid category' },
         { status: 400 }
@@ -34,26 +55,45 @@ export async function POST(request: Request) {
 
     // Validate type
     if (!['income', 'expense'].includes(type)) {
+      console.error('Invalid type:', type);
       return NextResponse.json(
         { error: 'Type must be either income or expense' },
         { status: 400 }
       );
     }
 
+    // Validate date
+    const transactionDate = new Date(date);
+    if (isNaN(transactionDate.getTime())) {
+      console.error('Invalid date:', date);
+      return NextResponse.json(
+        { error: 'Invalid date' },
+        { status: 400 }
+      );
+    }
+
+    console.log('Connecting to database...');
     await connectToDatabase();
+    console.log('Connected to database');
+
+    // Ensure consistent amount handling
+    const finalAmount = parseFloat(numericAmount.toFixed(2));
+    console.log('Creating transaction with amount:', finalAmount);
+
     const transaction = await Transaction.create({
-      amount: parseFloat(numericAmount.toFixed(2)), // Ensure 2 decimal places
-      description,
-      date,
+      amount: finalAmount,
+      description: description.trim(),
+      date: transactionDate,
       category,
       type,
     });
 
+    console.log('Transaction created successfully:', transaction);
     return NextResponse.json({ transaction });
   } catch (error) {
     console.error('Error creating transaction:', error);
     return NextResponse.json(
-      { error: 'Failed to create transaction' },
+      { error: error instanceof Error ? error.message : 'Failed to create transaction' },
       { status: 500 }
     );
   }

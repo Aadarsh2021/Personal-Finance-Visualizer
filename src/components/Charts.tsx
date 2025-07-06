@@ -47,9 +47,21 @@ function LoadingChart() {
   );
 }
 
+function ErrorMessage({ message }: { message: string }) {
+  return (
+    <div className="h-[300px] flex items-center justify-center">
+      <div className="text-destructive text-center">
+        <p className="text-lg">⚠️</p>
+        <p>{message}</p>
+      </div>
+    </div>
+  );
+}
+
 export function MonthlyChart() {
   const [data, setData] = useState<MonthlyData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [timePeriod, setTimePeriod] = useState('1m');
 
@@ -63,7 +75,6 @@ export function MonthlyChart() {
     }
   }, [mounted, timePeriod]);
 
-  // Listen for transaction updates
   useEffect(() => {
     const handleTransactionUpdate = () => {
       fetchMonthlyData();
@@ -78,51 +89,49 @@ export function MonthlyChart() {
       window.removeEventListener('transaction-updated', handleTransactionUpdate);
       window.removeEventListener('transaction-deleted', handleTransactionUpdate);
     };
-  }, [mounted]);
+  }, []);
 
   async function fetchMonthlyData() {
     try {
       setLoading(true);
+      setError(null);
       const endDate = new Date();
       const months = TIME_PERIODS.find(p => p.value === timePeriod)?.months || 1;
-      const startDate = subMonths(endDate, months);
+      const startDate = subMonths(endDate, months - 1); // Subtract (months - 1) to include current month
 
       const response = await fetch(
-        `/api/statistics?start=${startOfMonth(startDate).toISOString()}&end=${endDate.toISOString()}`
+        `/api/statistics?start=${startOfMonth(startDate).toISOString()}&end=${endOfMonth(endDate).toISOString()}`
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch monthly data');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch monthly data');
       }
 
       const monthlyData = await response.json();
+      
+      if (!Array.isArray(monthlyData) || monthlyData.length === 0) {
+        setData([]);
+        return;
+      }
+
       const formattedData = monthlyData.map((item: any) => ({
         month: format(new Date(item.month), 'MMM yyyy'),
-        expenses: Math.abs(item.expenses),
-        income: item.income,
+        expenses: Math.abs(item.expenses || 0),
+        income: Math.abs(item.income || 0),
       }));
 
       setData(formattedData);
     } catch (error) {
       console.error('Error fetching monthly data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load chart data');
     } finally {
       setLoading(false);
     }
   }
 
-  if (!mounted || loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Monthly Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <LoadingChart />
-        </CardContent>
-      </Card>
-    );
-  }
-
+  if (!mounted) return null;
+  
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -130,21 +139,31 @@ export function MonthlyChart() {
         <TimePeriodSelect value={timePeriod} onValueChange={setTimePeriod} />
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis tickFormatter={(value) => formatCurrency(value).replace('₹', '₹ ')} />
-              <Tooltip
-                formatter={(value: number) => [formatCurrency(value), '']}
-                labelFormatter={(label) => `Month: ${label}`}
-              />
-              <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
-              <Bar dataKey="income" fill="#22c55e" name="Income" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {loading ? (
+          <LoadingChart />
+        ) : error ? (
+          <ErrorMessage message={error} />
+        ) : data.length === 0 ? (
+          <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+            No data available for the selected period
+          </div>
+        ) : (
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value) => formatCurrency(value).replace('₹', '₹ ')} />
+                <Tooltip
+                  formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                  labelFormatter={(label) => `Month: ${label}`}
+                />
+                <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
+                <Bar dataKey="income" fill="#22c55e" name="Income" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -153,6 +172,7 @@ export function MonthlyChart() {
 export function CategoryPieChart() {
   const [data, setData] = useState<CategoryData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [timePeriod, setTimePeriod] = useState('1m');
 
@@ -166,7 +186,6 @@ export function CategoryPieChart() {
     }
   }, [mounted, timePeriod]);
 
-  // Listen for transaction updates
   useEffect(() => {
     const handleTransactionUpdate = () => {
       fetchCategoryData();
@@ -181,65 +200,84 @@ export function CategoryPieChart() {
       window.removeEventListener('transaction-updated', handleTransactionUpdate);
       window.removeEventListener('transaction-deleted', handleTransactionUpdate);
     };
-  }, [mounted]);
+  }, []);
 
   async function fetchCategoryData() {
     try {
       setLoading(true);
+      setError(null);
       const endDate = new Date();
       const months = TIME_PERIODS.find(p => p.value === timePeriod)?.months || 1;
-      const startDate = subMonths(endDate, months);
+      const startDate = subMonths(endDate, months - 1); // Subtract (months - 1) to include current month
 
       const response = await fetch(
-        `/api/statistics/categories?start=${startOfMonth(startDate).toISOString()}&end=${endDate.toISOString()}`
+        `/api/statistics/categories?start=${startOfMonth(startDate).toISOString()}&end=${endOfMonth(endDate).toISOString()}`
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch category data');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch category data');
       }
 
       const categoryData = await response.json();
+      
+      if (!Array.isArray(categoryData) || categoryData.length === 0) {
+        setData([]);
+        return;
+      }
+
       setData(categoryData);
     } catch (error) {
       console.error('Error fetching category data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load chart data');
     } finally {
       setLoading(false);
     }
   }
 
-  if (loading) {
-    return <div>Loading chart...</div>;
-  }
+  if (!mounted) return null;
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Expense Categories</CardTitle>
+        <CardTitle>Expense by Category</CardTitle>
         <TimePeriodSelect value={timePeriod} onValueChange={setTimePeriod} />
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                dataKey="amount"
-                nameKey="category"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                fill="#8884d8"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-              >
-                {data.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value: number) => formatCurrency(value)} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        {loading ? (
+          <LoadingChart />
+        ) : error ? (
+          <ErrorMessage message={error} />
+        ) : data.length === 0 ? (
+          <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+            No data available for the selected period
+          </div>
+        ) : (
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data}
+                  dataKey="amount"
+                  nameKey="category"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  fill="#8884d8"
+                  label={(entry) => `${entry.category}: ${formatCurrency(entry.amount)}`}
+                >
+                  {data.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  formatter={(value: number) => formatCurrency(value)}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

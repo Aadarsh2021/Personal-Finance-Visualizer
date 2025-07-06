@@ -18,34 +18,6 @@ import { transactionCategories } from '@/types';
 import { cn, formatAmount, parseCurrencyString } from '@/lib/utils';
 import { format } from 'date-fns';
 
-const formSchema = z.object({
-  amount: z.string()
-    .min(1, 'Amount is required')
-    .transform((val) => {
-      const cleanVal = val.replace(/[₹,\s]/g, '');
-      const number = parseFloat(cleanVal);
-      if (isNaN(number)) {
-        throw new Error('Invalid amount');
-      }
-      if (number > 999999999999.99) { // Limit to 12 digits before decimal
-        throw new Error('Amount is too large');
-      }
-      return parseFloat(number.toFixed(2)); // Ensure 2 decimal places
-    })
-    .refine((val) => val !== 0, 'Amount cannot be zero'),
-  description: z.string().min(1, 'Description is required'),
-  date: z.string()
-    .min(1, 'Date is required')
-    .refine((date) => {
-      const selectedDate = new Date(date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return selectedDate <= today;
-    }, 'Cannot select future dates'),
-  category: z.string().min(1, 'Category is required'),
-  type: z.enum(['income', 'expense']),
-});
-
 type RawFormData = {
   amount: string;
   description: string;
@@ -53,6 +25,47 @@ type RawFormData = {
   category: string;
   type: 'income' | 'expense';
 };
+
+const formSchema = z.object({
+  amount: z.string()
+    .min(1, 'Amount is required')
+    .refine((val) => {
+      const cleanVal = val.replace(/[₹,\s]/g, '');
+      const number = parseFloat(cleanVal);
+      return !isNaN(number) && number > 0;
+    }, 'Please enter a valid positive number')
+    .transform((val) => {
+      const cleanVal = val.replace(/[₹,\s]/g, '');
+      const number = parseFloat(cleanVal);
+      if (isNaN(number)) {
+        throw new Error('Invalid amount');
+      }
+      if (number <= 0) {
+        throw new Error('Amount must be positive');
+      }
+      if (number > 999999999999.99) {
+        throw new Error('Amount is too large (max 12 digits before decimal)');
+      }
+      return parseFloat(number.toFixed(2));
+    }),
+  description: z.string().min(1, 'Description is required'),
+  date: z.string()
+    .min(1, 'Date is required')
+    .refine((date) => {
+      const selectedDate = new Date(date);
+      return !isNaN(selectedDate.getTime());
+    }, 'Invalid date format')
+    .refine((date) => {
+      const selectedDate = new Date(date);
+      const minDate = new Date('2000-01-01');
+      const maxDate = new Date('2100-12-31');
+      return selectedDate >= minDate && selectedDate <= maxDate;
+    }, 'Date must be between year 2000 and 2100'),
+  category: z.string().min(1, 'Please select a category'),
+  type: z.enum(['income', 'expense'], {
+    required_error: 'Please select a transaction type',
+  }),
+});
 
 type TransactionFormData = z.infer<typeof formSchema>;
 
@@ -62,13 +75,10 @@ export default function TransactionForm() {
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [displayAmount, setDisplayAmount] = useState('');
 
-  // Get today's date in YYYY-MM-DD format for the max attribute
-  const today = format(new Date(), 'yyyy-MM-dd');
-
   const form = useForm<RawFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date: today,
+      date: format(new Date(), 'yyyy-MM-dd'),
       type: 'expense',
       category: '',
       description: '',
@@ -81,67 +91,80 @@ export default function TransactionForm() {
     let value = e.target.value;
     
     // Remove all non-numeric characters except decimal point
-    value = value.replace(/[^\d.]/g, '');
+    value = value.replace(/[^0-9.]/g, '');
     
-    // Handle multiple decimal points
-    const decimalCount = (value.match(/\./g) || []).length;
-    if (decimalCount > 1) {
-      const parts = value.split('.');
+    // Ensure only one decimal point
+    const parts = value.split('.');
+    if (parts.length > 2) {
       value = parts[0] + '.' + parts.slice(1).join('');
     }
     
-    // Handle decimal places
-    if (value.includes('.')) {
-      const [whole, decimal] = value.split('.');
-      // Limit whole number to 12 digits
-      value = whole.slice(0, 12) + '.' + (decimal || '').slice(0, 2);
-    } else {
-      // Limit whole number to 12 digits when no decimal
-      value = value.slice(0, 12);
+    // Limit decimal places to 2
+    if (parts.length === 2 && parts[1].length > 2) {
+      value = parts[0] + '.' + parts[1].slice(0, 2);
     }
 
-    // Set the raw value for both display and form
-    setDisplayAmount(value);
-    form.setValue('amount', value);
+    // Format with commas for thousands
+    if (value) {
+      const number = parseFloat(value);
+      if (!isNaN(number)) {
+        // Use Indian number formatting
+        const formattedNumber = new Intl.NumberFormat('en-IN', {
+          maximumFractionDigits: 2,
+          minimumFractionDigits: 0,
+          useGrouping: true,
+        }).format(number);
+        setDisplayAmount(formattedNumber);
+        // Store the raw number string without formatting
+        form.setValue('amount', number.toString(), { shouldValidate: true });
+      }
+    } else {
+      setDisplayAmount('');
+      form.setValue('amount', '', { shouldValidate: true });
+    }
   };
 
-  const onSubmit = async (data: TransactionFormData) => {
-    console.log('Form submitted with data:', data);
+  const onSubmit = async (data: RawFormData) => {
     setIsSubmitting(true);
     setSubmitError(null);
     setHasSubmitted(true);
     
     try {
-      // For expenses, make amount negative; for income, keep positive
-      const finalAmount = data.type === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount);
-      console.log('Final amount to send:', finalAmount);
+      // Parse amount and handle validation
+      const cleanAmount = data.amount.toString().replace(/[₹,\s]/g, '');
+      const parsedAmount = parseFloat(cleanAmount);
+      if (isNaN(parsedAmount)) {
+        throw new Error('Invalid amount format');
+      }
+
+      // Always store positive amount for income and negative for expense
+      const finalAmount = data.type === 'expense' ? -Math.abs(parsedAmount) : Math.abs(parsedAmount);
       
+      const requestBody = {
+        amount: finalAmount,
+        description: data.description.trim(),
+        date: data.date,
+        category: data.category,
+        type: data.type,
+      };
+
       const response = await fetch('/api/transactions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          amount: finalAmount,
-          description: data.description,
-          date: data.date,
-          category: data.category,
-          type: data.type,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
-      console.log('Response status:', response.status);
-      const responseData = await response.json();
-      console.log('Response data:', responseData);
-
       if (!response.ok) {
-        throw new Error(responseData.error || 'Failed to create transaction');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create transaction');
       }
 
-      console.log('Transaction created successfully');
+      // Reset form
       form.reset({
-        date: today,
-        type: 'expense',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        type: 'expense', // Default to expense
         category: '',
         description: '',
         amount: '',
@@ -164,7 +187,7 @@ export default function TransactionForm() {
   };
 
   return (
-    <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
       {submitError && (
         <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
           <div className="flex items-center space-x-2">
@@ -173,6 +196,36 @@ export default function TransactionForm() {
           </div>
         </div>
       )}
+
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Transaction Type</Label>
+        <div className="flex gap-4">
+          <div className="flex items-center space-x-2">
+            <input
+              type="radio"
+              id="expense"
+              value="expense"
+              {...form.register('type')}
+              className="radio-primary"
+              defaultChecked
+            />
+            <Label htmlFor="expense" className="cursor-pointer">Expense</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <input
+              type="radio"
+              id="income"
+              value="income"
+              {...form.register('type')}
+              className="radio-primary"
+            />
+            <Label htmlFor="income" className="cursor-pointer">Income</Label>
+          </div>
+        </div>
+        {shouldShowError('type') && (
+          <p className="text-destructive text-sm">{form.formState.errors.type?.message}</p>
+        )}
+      </div>
 
       <div className="space-y-2">
         <Label htmlFor="amount" className="text-sm font-medium">
@@ -194,60 +247,19 @@ export default function TransactionForm() {
           />
         </div>
         {shouldShowError('amount') && (
-          <p className="text-destructive text-xs">{form.formState.errors.amount?.message}</p>
+          <p className="text-destructive text-sm">{form.formState.errors.amount?.message}</p>
         )}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description" className="text-sm font-medium">
-          Description
-        </Label>
-        <Input
-          id="description"
-          type="text"
-          placeholder="Enter transaction description"
-          {...form.register('description')}
-          className={cn(
-            shouldShowError('description') && "border-destructive focus-visible:ring-destructive/20"
-          )}
-        />
-        {shouldShowError('description') && (
-          <p className="text-destructive text-xs">{form.formState.errors.description?.message}</p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="date" className="text-sm font-medium">
-          Date
-        </Label>
-        <Input
-          id="date"
-          type="date"
-          max={today}
-          {...form.register('date')}
-          className={cn(
-            shouldShowError('date') && "border-destructive focus-visible:ring-destructive/20"
-          )}
-        />
-        {shouldShowError('date') && (
-          <p className="text-destructive text-xs">{form.formState.errors.date?.message}</p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="category" className="text-sm font-medium">
-          Category
-        </Label>
+        <Label className="text-sm font-medium">Category</Label>
         <Select 
           value={form.watch('category')} 
-          onValueChange={(value) => form.setValue('category', value)}
+          onValueChange={(value) => form.setValue('category', value, { shouldValidate: true })}
         >
-          <SelectTrigger 
-            id="category"
-            className={cn(
-              shouldShowError('category') && "border-destructive focus-visible:ring-destructive/20"
-            )}
-          >
+          <SelectTrigger className={cn(
+            shouldShowError('category') && "border-destructive focus-visible:ring-destructive/20"
+          )}>
             <SelectValue placeholder="Select a category" />
           </SelectTrigger>
           <SelectContent>
@@ -259,50 +271,50 @@ export default function TransactionForm() {
           </SelectContent>
         </Select>
         {shouldShowError('category') && (
-          <p className="text-destructive text-xs">{form.formState.errors.category?.message}</p>
+          <p className="text-destructive text-sm">{form.formState.errors.category?.message}</p>
         )}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="type" className="text-sm font-medium">
-          Type
+        <Label htmlFor="description" className="text-sm font-medium">
+          Description
         </Label>
-        <Select 
-          value={form.watch('type')} 
-          onValueChange={(value) => form.setValue('type', value as 'income' | 'expense')}
-        >
-          <SelectTrigger 
-            id="type"
-            className={cn(
-              shouldShowError('type') && "border-destructive focus-visible:ring-destructive/20"
-            )}
-          >
-            <SelectValue placeholder="Select type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="expense">💸 Expense</SelectItem>
-            <SelectItem value="income">💰 Income</SelectItem>
-          </SelectContent>
-        </Select>
-        {shouldShowError('type') && (
-          <p className="text-destructive text-xs">{form.formState.errors.type?.message}</p>
+        <Input
+          id="description"
+          type="text"
+          {...form.register('description')}
+          className={cn(
+            shouldShowError('description') && "border-destructive focus-visible:ring-destructive/20"
+          )}
+        />
+        {shouldShowError('description') && (
+          <p className="text-destructive text-sm">{form.formState.errors.description?.message}</p>
         )}
       </div>
 
-      <Button 
-        type="submit" 
-        disabled={isSubmitting}
-        className="w-full"
-        size="lg"
-      >
-        {isSubmitting ? (
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-            <span>Creating...</span>
-          </div>
-        ) : (
-          'Create Transaction'
+      <div className="space-y-2">
+        <Label htmlFor="date" className="text-sm font-medium">
+          Date
+        </Label>
+        <Input
+          id="date"
+          type="date"
+          {...form.register('date')}
+          className={cn(
+            shouldShowError('date') && "border-destructive focus-visible:ring-destructive/20"
+          )}
+        />
+        {shouldShowError('date') && (
+          <p className="text-destructive text-sm">{form.formState.errors.date?.message}</p>
         )}
+      </div>
+
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? 'Creating...' : 'Create Transaction'}
       </Button>
     </form>
   );

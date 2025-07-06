@@ -23,27 +23,35 @@ const formSchema = z.object({
   category: z.string().min(1, 'Category is required'),
   amount: z.string()
     .min(1, 'Amount is required')
+    .refine((val) => {
+      const cleanVal = val.replace(/[₹,\s]/g, '');
+      const number = parseFloat(cleanVal);
+      return !isNaN(number) && number > 0;
+    }, 'Please enter a valid positive number')
     .transform((val) => {
       const cleanVal = val.replace(/[₹,\s]/g, '');
       const number = parseFloat(cleanVal);
       if (isNaN(number)) {
         throw new Error('Invalid amount');
       }
-      if (number > 999999999999.99) { // Limit to 12 digits before decimal
-        throw new Error('Amount is too large');
-      }
       if (number <= 0) {
         throw new Error('Amount must be positive');
       }
-      return parseFloat(number.toFixed(2)); // Ensure 2 decimal places
+      if (number > 999999999999.99) {
+        throw new Error('Amount is too large (max 12 digits before decimal)');
+      }
+      return parseFloat(number.toFixed(2));
     }),
   month: z.coerce
     .number({ required_error: 'Month is required' })
     .min(1, 'Month must be between 1 and 12')
-    .max(12, 'Month must be between 1 and 12'),
+    .max(12, 'Month must be between 1 and 12')
+    .int('Month must be a whole number'),
   year: z.coerce
     .number({ required_error: 'Year is required' })
-    .min(2000, 'Year must be 2000 or later'),
+    .min(2000, 'Year must be 2000 or later')
+    .max(2100, 'Year must be 2100 or earlier')
+    .int('Year must be a whole number'),
   completed: z.boolean().default(false),
 });
 
@@ -67,6 +75,7 @@ export default function BudgetForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [displayAmount, setDisplayAmount] = useState('');
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   const form = useForm<RawFormData>({
     resolver: zodResolver(formSchema),
@@ -83,44 +92,73 @@ export default function BudgetForm() {
     let value = e.target.value;
     
     // Remove all non-numeric characters except decimal point
-    value = value.replace(/[^\d.]/g, '');
+    value = value.replace(/[^0-9.]/g, '');
     
-    // Handle multiple decimal points
-    const decimalCount = (value.match(/\./g) || []).length;
-    if (decimalCount > 1) {
-      const parts = value.split('.');
+    // Ensure only one decimal point
+    const parts = value.split('.');
+    if (parts.length > 2) {
       value = parts[0] + '.' + parts.slice(1).join('');
     }
     
-    // Handle decimal places
-    if (value.includes('.')) {
-      const [whole, decimal] = value.split('.');
-      // Limit whole number to 12 digits
-      value = whole.slice(0, 12) + '.' + (decimal || '').slice(0, 2);
-    } else {
-      // Limit whole number to 12 digits when no decimal
-      value = value.slice(0, 12);
+    // Limit decimal places to 2
+    if (parts.length === 2 && parts[1].length > 2) {
+      value = parts[0] + '.' + parts[1].slice(0, 2);
     }
 
-    // Set the raw value for both display and form
-    setDisplayAmount(value);
-    form.setValue('amount', value);
+    // Format with commas for thousands
+    if (value) {
+      const number = parseFloat(value);
+      if (!isNaN(number)) {
+        // Use Indian number formatting
+        const formattedNumber = new Intl.NumberFormat('en-IN', {
+          maximumFractionDigits: 2,
+          minimumFractionDigits: 0,
+          useGrouping: true,
+        }).format(number);
+        setDisplayAmount(formattedNumber);
+        // Store the raw number string without formatting
+        form.setValue('amount', number.toString(), { shouldValidate: true });
+      }
+    } else {
+      setDisplayAmount('');
+      form.setValue('amount', '', { shouldValidate: true });
+    }
   };
 
   const onSubmit = async (data: RawFormData) => {
     setIsSubmitting(true);
     setSubmitError(null);
+    setHasSubmitted(true);
 
     try {
-      // Parse the amount string to number
-      const amount = parseFloat(data.amount.replace(/[₹,\s]/g, ''));
+      // Parse and validate amount
+      const cleanAmount = data.amount.toString().replace(/[₹,\s]/g, '');
+      const amount = parseFloat(cleanAmount);
       if (isNaN(amount)) {
-        throw new Error('Invalid amount');
+        throw new Error('Invalid amount format');
+      }
+
+      // Validate month and year
+      const currentDate = new Date();
+      const budgetDate = new Date(data.year, data.month - 1);
+      
+      // Don't allow budgets more than 2 years in the future
+      const maxDate = new Date();
+      maxDate.setFullYear(currentDate.getFullYear() + 2);
+      
+      if (budgetDate < new Date(2000, 0)) {
+        throw new Error('Budget date cannot be before year 2000');
+      }
+      
+      if (budgetDate > maxDate) {
+        throw new Error('Budget date cannot be more than 2 years in the future');
       }
 
       const processedData: ProcessedFormData = {
         ...data,
-        amount: amount,
+        amount: parseFloat(amount.toFixed(2)),
+        month: Math.floor(data.month),
+        year: Math.floor(data.year),
       };
 
       const response = await fetch('/api/budgets', {
@@ -145,6 +183,7 @@ export default function BudgetForm() {
         completed: false,
       });
       setDisplayAmount('');
+      setHasSubmitted(false);
 
       // Dispatch custom event to refresh budget list
       window.dispatchEvent(new CustomEvent('budget-created'));
@@ -161,20 +200,30 @@ export default function BudgetForm() {
     label: new Date(2000, i).toLocaleString('default', { month: 'long' })
   }));
 
+  const shouldShowError = (fieldName: keyof RawFormData) => {
+    return hasSubmitted && form.formState.errors[fieldName];
+  };
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
       {submitError && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-2 rounded-md">
-          {submitError}
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="text-lg">⚠️</div>
+            <p className="text-sm font-medium">{submitError}</p>
+          </div>
         </div>
       )}
 
-      <div>
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Category</Label>
         <Select 
           value={form.watch('category')} 
-          onValueChange={(value) => form.setValue('category', value, { shouldValidate: true, shouldTouch: true })}
+          onValueChange={(value) => form.setValue('category', value, { shouldValidate: true })}
         >
-          <SelectTrigger className={form.formState.errors.category ? 'border-red-500' : ''}>
+          <SelectTrigger className={cn(
+            shouldShowError('category') && "border-destructive focus-visible:ring-destructive/20"
+          )}>
             <SelectValue placeholder="Select a category" />
           </SelectTrigger>
           <SelectContent>
@@ -185,12 +234,12 @@ export default function BudgetForm() {
             ))}
           </SelectContent>
         </Select>
-        {form.formState.errors.category && form.formState.touchedFields.category && (
-          <p className="text-red-500 text-sm mt-1">{form.formState.errors.category.message}</p>
+        {shouldShowError('category') && (
+          <p className="text-destructive text-sm">{form.formState.errors.category?.message}</p>
         )}
       </div>
 
-      <div>
+      <div className="space-y-2">
         <Label htmlFor="amount" className="text-sm font-medium">
           Amount (₹)
         </Label>
@@ -205,47 +254,58 @@ export default function BudgetForm() {
             onChange={handleAmountChange}
             className={cn(
               "pl-7",
-              form.formState.errors.amount ? "border-red-500" : ""
+              shouldShowError('amount') && "border-destructive focus-visible:ring-destructive/20"
             )}
           />
         </div>
-        {form.formState.errors.amount && form.formState.touchedFields.amount && (
-          <p className="text-red-500 text-sm mt-1">{form.formState.errors.amount.message}</p>
+        {shouldShowError('amount') && (
+          <p className="text-destructive text-sm">{form.formState.errors.amount?.message}</p>
         )}
       </div>
 
-      <div>
-        <Select 
-          value={form.watch('month')?.toString()} 
-          onValueChange={(value) => form.setValue('month', parseInt(value), { shouldValidate: true, shouldTouch: true })}
-        >
-          <SelectTrigger className={form.formState.errors.month ? 'border-red-500' : ''}>
-            <SelectValue placeholder="Select month" />
-          </SelectTrigger>
-          <SelectContent>
-            {months.map(({ value, label }) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {form.formState.errors.month && form.formState.touchedFields.month && (
-          <p className="text-red-500 text-sm mt-1">{form.formState.errors.month.message}</p>
-        )}
-      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Month</Label>
+          <Select 
+            value={form.watch('month').toString()} 
+            onValueChange={(value) => form.setValue('month', parseInt(value), { shouldValidate: true })}
+          >
+            <SelectTrigger className={cn(
+              shouldShowError('month') && "border-destructive focus-visible:ring-destructive/20"
+            )}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map(({ value, label }) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {shouldShowError('month') && (
+            <p className="text-destructive text-sm">{form.formState.errors.month?.message}</p>
+          )}
+        </div>
 
-      <div>
-        <Input
-          type="number"
-          placeholder="Year"
-          min={2000}
-          {...form.register('year')}
-          className={form.formState.errors.year ? 'border-red-500' : ''}
-        />
-        {form.formState.errors.year && form.formState.touchedFields.year && (
-          <p className="text-red-500 text-sm mt-1">{form.formState.errors.year.message}</p>
-        )}
+        <div className="space-y-2">
+          <Label htmlFor="year" className="text-sm font-medium">
+            Year
+          </Label>
+          <Input
+            id="year"
+            type="number"
+            min="2000"
+            max="2100"
+            {...form.register('year')}
+            className={cn(
+              shouldShowError('year') && "border-destructive focus-visible:ring-destructive/20"
+            )}
+          />
+          {shouldShowError('year') && (
+            <p className="text-destructive text-sm">{form.formState.errors.year?.message}</p>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center space-x-2">
@@ -254,15 +314,15 @@ export default function BudgetForm() {
           checked={form.watch('completed')}
           onCheckedChange={(checked) => form.setValue('completed', checked as boolean)}
         />
-        <Label htmlFor="completed" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-          Mark as completed (no further payments allowed)
+        <Label htmlFor="completed" className="text-sm font-medium cursor-pointer">
+          Mark as completed
         </Label>
       </div>
 
-      <Button 
-        type="submit" 
-        disabled={isSubmitting}
+      <Button
+        type="submit"
         className="w-full"
+        disabled={isSubmitting}
       >
         {isSubmitting ? 'Creating...' : 'Create Budget'}
       </Button>
