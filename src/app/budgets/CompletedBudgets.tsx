@@ -5,6 +5,7 @@ import { Budget } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { formatCurrency } from '@/lib/utils';
 
 export default function CompletedBudgets() {
   const [completedBudgets, setCompletedBudgets] = useState<Budget[]>([]);
@@ -41,10 +42,14 @@ export default function CompletedBudgets() {
 
     window.addEventListener('budget-created', handleBudgetUpdated);
     window.addEventListener('budget-updated', handleBudgetUpdated);
+    window.addEventListener('budget-deleted', handleBudgetUpdated);
+    window.addEventListener('budget-completed', handleBudgetUpdated);
     
     return () => {
       window.removeEventListener('budget-created', handleBudgetUpdated);
       window.removeEventListener('budget-updated', handleBudgetUpdated);
+      window.removeEventListener('budget-deleted', handleBudgetUpdated);
+      window.removeEventListener('budget-completed', handleBudgetUpdated);
     };
   }, [fetchCompletedBudgets]);
 
@@ -58,9 +63,10 @@ export default function CompletedBudgets() {
         throw new Error('Failed to reopen budget');
       }
 
-      fetchCompletedBudgets();
-      // Dispatch event to refresh other components
+      await fetchCompletedBudgets();
+      // Dispatch both updated and completed events to ensure all components refresh
       window.dispatchEvent(new CustomEvent('budget-updated'));
+      window.dispatchEvent(new CustomEvent('budget-completed'));
     } catch (error) {
       console.error('Error reopening budget:', error);
       alert('Failed to reopen budget. Please try again.');
@@ -113,7 +119,7 @@ export default function CompletedBudgets() {
                     {getMonthName(budget.month)} {budget.year}
                   </p>
                   <p className="text-sm text-gray-600">
-                    Budget: ${budget.amount.toFixed(2)}
+                    Budget: {formatCurrency(budget.amount)}
                   </p>
                   <p className="text-xs text-red-600 font-medium mt-1">
                     ⚠️ No further payments allowed
@@ -123,7 +129,7 @@ export default function CompletedBudgets() {
                 <div className="flex items-center space-x-2">
                   <div className="text-right">
                     <div className="font-bold text-gray-500">
-                      ${budget.amount.toFixed(2)}
+                      {formatCurrency(budget.amount)}
                     </div>
                     <div className="text-xs text-gray-400">Budget Amount</div>
                   </div>

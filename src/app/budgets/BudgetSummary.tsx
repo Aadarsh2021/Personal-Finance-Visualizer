@@ -1,95 +1,58 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { cn } from '@/lib/utils';
-
-interface BudgetSummary {
-  totalBudget: number;
-  totalSpent: number;
-  totalRemaining: number;
-  budgetCount: number;
-  overBudgetCount: number;
-  warningCount: number;
-  onTrackCount: number;
-}
+import { Budget } from '@/types';
 
 export default function BudgetSummary() {
-  const [summary, setSummary] = useState<BudgetSummary | null>(null);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth() + 1);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
 
-  useEffect(() => {
-    fetchBudgetSummary();
-  }, [currentMonth, currentYear]);
-
-  const fetchBudgetSummary = async () => {
+  const fetchBudgets = useCallback(async () => {
     try {
       setLoading(true);
-      
-      // Fetch budgets for current month/year
-      const budgetResponse = await fetch(`/api/budgets?month=${currentMonth}&year=${currentYear}`);
-      if (!budgetResponse.ok) throw new Error('Failed to fetch budgets');
-      const budgetData = await budgetResponse.json();
-      
-      // Fetch transactions for current month/year
-      const transactionResponse = await fetch(`/api/transactions?month=${currentMonth}&year=${currentYear}`);
-      if (!transactionResponse.ok) throw new Error('Failed to fetch transactions');
-      const transactionData = await transactionResponse.json();
-      
-      const budgets = budgetData.budgets || [];
-      const transactions = transactionData.transactions || [];
-      
-      // Calculate summary (exclude completed budgets)
-      const activeBudgets = budgets.filter((budget: any) => !budget.completed);
-      const totalBudget = activeBudgets.reduce((sum: number, budget: any) => sum + budget.amount, 0);
-      
-      let totalSpent = 0;
-      let overBudgetCount = 0;
-      let warningCount = 0;
-      let onTrackCount = 0;
-      
-      activeBudgets.forEach((budget: any) => {
-        const categoryTransactions = transactions.filter((t: any) => 
-          t.category === budget.category && t.amount < 0
-        );
-        
-        const spent = Math.abs(categoryTransactions.reduce((sum: number, t: any) => sum + t.amount, 0));
-        totalSpent += spent;
-        
-        const percentage = (spent / budget.amount) * 100;
-        
-        if (percentage >= 100) {
-          overBudgetCount++;
-        } else if (percentage >= 80) {
-          warningCount++;
-        } else {
-          onTrackCount++;
-        }
-      });
-      
-      const totalRemaining = totalBudget - totalSpent;
-      
-      setSummary({
-        totalBudget,
-        totalSpent,
-        totalRemaining,
-        budgetCount: activeBudgets.length,
-        overBudgetCount,
-        warningCount,
-        onTrackCount
-      });
+      const response = await fetch('/api/budgets');
+      if (!response.ok) {
+        throw new Error('Failed to fetch budgets');
+      }
+      const data = await response.json();
+      setBudgets(data.budgets || []);
     } catch (err) {
-      console.error('Error fetching budget summary:', err);
+      console.error('Error fetching budgets:', err);
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchBudgets();
+  }, [fetchBudgets]);
+
+  // Listen for budget events
+  useEffect(() => {
+    const handleBudgetUpdate = () => {
+      fetchBudgets();
+    };
+
+    window.addEventListener('budget-created', handleBudgetUpdate);
+    window.addEventListener('budget-updated', handleBudgetUpdate);
+    window.addEventListener('budget-deleted', handleBudgetUpdate);
+    window.addEventListener('budget-completed', handleBudgetUpdate);
+
+    return () => {
+      window.removeEventListener('budget-created', handleBudgetUpdate);
+      window.removeEventListener('budget-updated', handleBudgetUpdate);
+      window.removeEventListener('budget-deleted', handleBudgetUpdate);
+      window.removeEventListener('budget-completed', handleBudgetUpdate);
+    };
+  }, [fetchBudgets]);
 
   const getMonthName = (month: number) => {
     return new Date(2000, month - 1).toLocaleString('default', { month: 'long' });
@@ -123,7 +86,7 @@ export default function BudgetSummary() {
     );
   }
 
-  if (!summary || summary.budgetCount === 0) {
+  if (budgets.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-8">
         <p>No budgets set for {getMonthName(currentMonth)} {currentYear}</p>
@@ -132,8 +95,14 @@ export default function BudgetSummary() {
     );
   }
 
-  const percentageUsed = (summary.totalSpent / summary.totalBudget) * 100;
-  const isOverBudget = summary.totalSpent > summary.totalBudget;
+  const totalBudget = budgets.reduce((sum, budget) => sum + budget.amount, 0);
+  const activeBudgets = budgets.filter(budget => !budget.completed);
+  const completedBudgets = budgets.filter(budget => budget.completed);
+  const activeBudgetAmount = activeBudgets.reduce((sum, budget) => sum + budget.amount, 0);
+  const completedBudgetAmount = completedBudgets.reduce((sum, budget) => sum + budget.amount, 0);
+
+  const percentageUsed = (activeBudgetAmount / totalBudget) * 100;
+  const isOverBudget = activeBudgetAmount > totalBudget;
 
   return (
     <div className="space-y-6">
@@ -150,7 +119,7 @@ export default function BudgetSummary() {
               <span className="text-xl">💰</span>
               <div>
                 <p className="text-sm text-muted-foreground">Total Budget</p>
-                <p className="text-xl font-bold">{formatCurrency(summary.totalBudget)}</p>
+                <p className="text-xl font-bold">{formatCurrency(totalBudget)}</p>
               </div>
             </div>
           </CardContent>
@@ -161,8 +130,8 @@ export default function BudgetSummary() {
             <div className="flex items-center space-x-2">
               <span className="text-xl">💸</span>
               <div>
-                <p className="text-sm text-muted-foreground">Total Spent</p>
-                <p className="text-xl font-bold">{formatCurrency(summary.totalSpent)}</p>
+                <p className="text-sm text-muted-foreground">Active Budgets</p>
+                <p className="text-xl font-bold">{formatCurrency(activeBudgetAmount)}</p>
               </div>
             </div>
           </CardContent>
@@ -171,15 +140,10 @@ export default function BudgetSummary() {
         <Card className="sm:col-span-2 lg:col-span-1">
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <span className="text-xl">{isOverBudget ? '⚠️' : '💵'}</span>
+              <span className="text-xl">💸</span>
               <div>
-                <p className="text-sm text-muted-foreground">Remaining</p>
-                <p className={cn(
-                  "text-xl font-bold",
-                  isOverBudget ? "text-destructive" : "text-success"
-                )}>
-                  {formatCurrency(summary.totalRemaining)}
-                </p>
+                <p className="text-sm text-muted-foreground">Completed Budgets</p>
+                <p className="text-xl font-bold">{formatCurrency(completedBudgetAmount)}</p>
               </div>
             </div>
           </CardContent>
@@ -210,7 +174,7 @@ export default function BudgetSummary() {
           <div className="w-3 h-3 bg-success rounded-full"></div>
           <div>
             <p className="text-sm text-muted-foreground">On Track</p>
-            <p className="font-semibold text-success">{summary.onTrackCount}</p>
+            <p className="font-semibold text-success">{activeBudgets.length}</p>
           </div>
         </div>
         
@@ -218,7 +182,7 @@ export default function BudgetSummary() {
           <div className="w-3 h-3 bg-warning rounded-full"></div>
           <div>
             <p className="text-sm text-muted-foreground">Warning</p>
-            <p className="font-semibold text-warning">{summary.warningCount}</p>
+            <p className="font-semibold text-warning">{budgets.filter(b => b.amount < 0).length}</p>
           </div>
         </div>
         
@@ -226,7 +190,7 @@ export default function BudgetSummary() {
           <div className="w-3 h-3 bg-destructive rounded-full"></div>
           <div>
             <p className="text-sm text-muted-foreground">Over Budget</p>
-            <p className="font-semibold text-destructive">{summary.overBudgetCount}</p>
+            <p className="font-semibold text-destructive">{budgets.filter(b => b.amount < 0).length}</p>
           </div>
         </div>
       </div>
@@ -235,11 +199,11 @@ export default function BudgetSummary() {
       <div className="text-center text-muted-foreground">
         {isOverBudget ? (
           <p className="text-destructive">
-            You are over budget by {formatCurrency(Math.abs(summary.totalRemaining))}
+            You are over budget by {formatCurrency(Math.abs(activeBudgetAmount - totalBudget))}
           </p>
         ) : (
           <p>
-            You have {formatCurrency(summary.totalRemaining)} remaining in your budget
+            You have {formatCurrency(Math.max(totalBudget - activeBudgetAmount, 0))} remaining in your budget
           </p>
         )}
       </div>

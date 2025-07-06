@@ -28,6 +28,25 @@ export default function BudgetsPage() {
       });
   }, []);
 
+  // Add effect to listen for budget events
+  useEffect(() => {
+    const handleBudgetUpdate = () => {
+      setRefreshKey(prev => prev + 1);
+    };
+
+    window.addEventListener('budget-created', handleBudgetUpdate);
+    window.addEventListener('budget-updated', handleBudgetUpdate);
+    window.addEventListener('budget-deleted', handleBudgetUpdate);
+    window.addEventListener('budget-completed', handleBudgetUpdate);
+
+    return () => {
+      window.removeEventListener('budget-created', handleBudgetUpdate);
+      window.removeEventListener('budget-updated', handleBudgetUpdate);
+      window.removeEventListener('budget-deleted', handleBudgetUpdate);
+      window.removeEventListener('budget-completed', handleBudgetUpdate);
+    };
+  }, []);
+
   if (error) {
     return (
       <div className="space-y-8">

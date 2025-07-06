@@ -63,14 +63,20 @@ export default function BudgetList() {
 
   // Listen for custom events to refresh the list
   useEffect(() => {
-    const handleBudgetCreated = () => {
+    const handleBudgetUpdate = () => {
       fetchBudgets();
     };
 
-    window.addEventListener('budget-created', handleBudgetCreated);
+    window.addEventListener('budget-created', handleBudgetUpdate);
+    window.addEventListener('budget-updated', handleBudgetUpdate);
+    window.addEventListener('budget-deleted', handleBudgetUpdate);
+    window.addEventListener('budget-completed', handleBudgetUpdate);
     
     return () => {
-      window.removeEventListener('budget-created', handleBudgetCreated);
+      window.removeEventListener('budget-created', handleBudgetUpdate);
+      window.removeEventListener('budget-updated', handleBudgetUpdate);
+      window.removeEventListener('budget-deleted', handleBudgetUpdate);
+      window.removeEventListener('budget-completed', handleBudgetUpdate);
     };
   }, [fetchBudgets]);
 
@@ -108,7 +114,7 @@ export default function BudgetList() {
 
       setIsEditDialogOpen(false);
       setEditingBudget(null);
-      fetchBudgets();
+      await fetchBudgets();
       // Dispatch event to refresh other components
       window.dispatchEvent(new CustomEvent('budget-updated'));
     } catch (error) {
@@ -127,9 +133,10 @@ export default function BudgetList() {
         throw new Error('Failed to toggle budget completion');
       }
 
-      fetchBudgets();
-      // Dispatch event to refresh other components
+      await fetchBudgets();
+      // Dispatch both updated and completed events
       window.dispatchEvent(new CustomEvent('budget-updated'));
+      window.dispatchEvent(new CustomEvent('budget-completed'));
     } catch (error) {
       console.error('Error toggling budget completion:', error);
       alert('Failed to toggle budget completion. Please try again.');
@@ -148,7 +155,7 @@ export default function BudgetList() {
 
       setIsDeleteDialogOpen(false);
       setDeleteBudget(null);
-      fetchBudgets();
+      await fetchBudgets();
       // Dispatch event to refresh other components
       window.dispatchEvent(new CustomEvent('budget-deleted'));
     } catch (error) {
@@ -167,15 +174,48 @@ export default function BudgetList() {
   };
 
   if (loading) {
-    return <div>Loading budgets...</div>;
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="animate-pulse">
+            <CardContent className="p-4">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="h-5 bg-gray-200 rounded w-1/3 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="h-8 w-20 bg-gray-200 rounded"></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-red-500">Error: {error}</div>;
+    return (
+      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+        <div className="flex items-center space-x-2">
+          <span className="text-2xl">⚠️</span>
+          <div>
+            <p className="font-medium text-destructive">Error Loading Budgets</p>
+            <p className="text-sm text-destructive/80">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!budgets || budgets.length === 0) {
-    return <div>No budgets found.</div>;
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <p className="text-lg mb-2">No Active Budgets</p>
+        <p className="text-sm">Create a new budget to get started</p>
+      </div>
+    );
   }
 
   return (
