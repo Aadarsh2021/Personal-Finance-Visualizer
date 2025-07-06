@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { MonthlyChart, CategoryPieChart, SpendingInsights } from '@/components/Charts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Export from '@/components/Export';
 import {
   Table,
   TableBody,
@@ -92,6 +93,9 @@ export default function DashboardPage() {
         <p className="text-muted-foreground text-responsive">
           Track your finances and gain insights into your spending habits
         </p>
+        <div className="flex justify-center mt-4">
+          <Export transactions={summary.recentTransactions} summary={summary} />
+        </div>
       </div>
 
       {/* Summary Cards */}
