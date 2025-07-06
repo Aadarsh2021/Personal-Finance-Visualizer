@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface BudgetSummary {
   totalBudget: number;
@@ -94,16 +96,36 @@ export default function BudgetSummary() {
   };
 
   if (loading) {
-    return <div className="animate-pulse">Loading budget summary...</div>;
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <h3 className="text-lg font-semibold mb-2">Loading Budget Summary...</h3>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <div className="animate-pulse h-12 bg-muted rounded"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   if (error) {
-    return <div className="text-red-500">Error: {error}</div>;
+    return (
+      <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
+        <p className="font-medium">Error loading budget summary</p>
+        <p className="text-sm mt-1">{error}</p>
+      </div>
+    );
   }
 
   if (!summary || summary.budgetCount === 0) {
     return (
-      <div className="text-center text-gray-500 py-8">
+      <div className="text-center text-muted-foreground py-8">
         <p>No budgets set for {getMonthName(currentMonth)} {currentYear}</p>
         <p className="text-sm">Create budgets to see summary</p>
       </div>
@@ -125,10 +147,10 @@ export default function BudgetSummary() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <DollarSign className="h-5 w-5 text-blue-500" />
+              <span className="text-xl">💰</span>
               <div>
-                <p className="text-sm text-gray-600">Total Budget</p>
-                <p className="text-xl font-bold">${summary.totalBudget.toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground">Total Budget</p>
+                <p className="text-xl font-bold">{formatCurrency(summary.totalBudget)}</p>
               </div>
             </div>
           </CardContent>
@@ -137,10 +159,10 @@ export default function BudgetSummary() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <TrendingDown className="h-5 w-5 text-red-500" />
+              <span className="text-xl">💸</span>
               <div>
-                <p className="text-sm text-gray-600">Total Spent</p>
-                <p className="text-xl font-bold">${summary.totalSpent.toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground">Total Spent</p>
+                <p className="text-xl font-bold">{formatCurrency(summary.totalSpent)}</p>
               </div>
             </div>
           </CardContent>
@@ -149,11 +171,14 @@ export default function BudgetSummary() {
         <Card className="sm:col-span-2 lg:col-span-1">
           <CardContent className="p-4">
             <div className="flex items-center space-x-2">
-              <TrendingUp className={`h-5 w-5 ${isOverBudget ? 'text-red-500' : 'text-green-500'}`} />
+              <span className="text-xl">{isOverBudget ? '⚠️' : '💵'}</span>
               <div>
-                <p className="text-sm text-gray-600">Remaining</p>
-                <p className={`text-xl font-bold ${isOverBudget ? 'text-red-600' : 'text-green-600'}`}>
-                  ${summary.totalRemaining.toFixed(2)}
+                <p className="text-sm text-muted-foreground">Remaining</p>
+                <p className={cn(
+                  "text-xl font-bold",
+                  isOverBudget ? "text-destructive" : "text-success"
+                )}>
+                  {formatCurrency(summary.totalRemaining)}
                 </p>
               </div>
             </div>
@@ -167,11 +192,13 @@ export default function BudgetSummary() {
           <span>Budget Usage</span>
           <span className="font-medium">{percentageUsed.toFixed(1)}%</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-3">
+        <div className="w-full bg-muted rounded-full h-3">
           <div
-            className={`h-3 rounded-full transition-all duration-300 ${
-              isOverBudget ? 'bg-red-500' : percentageUsed >= 80 ? 'bg-yellow-500' : 'bg-green-500'
-            }`}
+            className={cn(
+              "h-3 rounded-full transition-all duration-300",
+              isOverBudget ? "bg-destructive" : 
+              percentageUsed >= 80 ? "bg-warning" : "bg-success"
+            )}
             style={{ width: `${Math.min(percentageUsed, 100)}%` }}
           />
         </div>
@@ -179,67 +206,43 @@ export default function BudgetSummary() {
       
       {/* Status breakdown */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="flex items-center space-x-2 p-3 bg-green-50 rounded-lg">
-          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+        <div className="flex items-center space-x-2 p-3 bg-success/10 rounded-lg">
+          <div className="w-3 h-3 bg-success rounded-full"></div>
           <div>
-            <p className="text-sm text-gray-600">On Track</p>
-            <p className="font-semibold text-green-600">{summary.onTrackCount}</p>
+            <p className="text-sm text-muted-foreground">On Track</p>
+            <p className="font-semibold text-success">{summary.onTrackCount}</p>
           </div>
         </div>
         
-        <div className="flex items-center space-x-2 p-3 bg-yellow-50 rounded-lg">
-          <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+        <div className="flex items-center space-x-2 p-3 bg-warning/10 rounded-lg">
+          <div className="w-3 h-3 bg-warning rounded-full"></div>
           <div>
-            <p className="text-sm text-gray-600">Warning</p>
-            <p className="font-semibold text-yellow-600">{summary.warningCount}</p>
+            <p className="text-sm text-muted-foreground">Warning</p>
+            <p className="font-semibold text-warning">{summary.warningCount}</p>
           </div>
         </div>
         
-        <div className="flex items-center space-x-2 p-3 bg-red-50 rounded-lg">
-          <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+        <div className="flex items-center space-x-2 p-3 bg-destructive/10 rounded-lg">
+          <div className="w-3 h-3 bg-destructive rounded-full"></div>
           <div>
-            <p className="text-sm text-gray-600">Over Budget</p>
-            <p className="font-semibold text-red-600">{summary.overBudgetCount}</p>
+            <p className="text-sm text-muted-foreground">Over Budget</p>
+            <p className="font-semibold text-destructive">{summary.overBudgetCount}</p>
           </div>
         </div>
       </div>
-      
+
       {/* Status message */}
-      {isOverBudget && (
-        <div className="flex items-center space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <AlertTriangle className="h-5 w-5 text-red-500" />
-          <div>
-            <p className="font-medium text-red-800">Over Budget</p>
-            <p className="text-sm text-red-600">
-              You've exceeded your total budget by ${Math.abs(summary.totalRemaining).toFixed(2)}
-            </p>
-          </div>
-        </div>
-      )}
-      
-      {!isOverBudget && percentageUsed >= 80 && (
-        <div className="flex items-center space-x-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <AlertTriangle className="h-5 w-5 text-yellow-500" />
-          <div>
-            <p className="font-medium text-yellow-800">Budget Warning</p>
-            <p className="text-sm text-yellow-600">
-              You've used {percentageUsed.toFixed(1)}% of your total budget
-            </p>
-          </div>
-        </div>
-      )}
-      
-      {!isOverBudget && percentageUsed < 80 && (
-        <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <TrendingUp className="h-5 w-5 text-green-500" />
-          <div>
-            <p className="font-medium text-green-800">On Track</p>
-            <p className="text-sm text-green-600">
-              You have ${summary.totalRemaining.toFixed(2)} remaining in your budget
-            </p>
-          </div>
-        </div>
-      )}
+      <div className="text-center text-muted-foreground">
+        {isOverBudget ? (
+          <p className="text-destructive">
+            You are over budget by {formatCurrency(Math.abs(summary.totalRemaining))}
+          </p>
+        ) : (
+          <p>
+            You have {formatCurrency(summary.totalRemaining)} remaining in your budget
+          </p>
+        )}
+      </div>
     </div>
   );
 } 

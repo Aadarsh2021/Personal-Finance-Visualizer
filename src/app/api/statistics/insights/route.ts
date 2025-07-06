@@ -4,6 +4,16 @@ import { Transaction } from '@/models/Transaction';
 import { Budget } from '@/models/Budget';
 import { startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
+// Helper function to format currency
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
 export async function GET() {
   try {
     await connectToDatabase();
@@ -125,7 +135,7 @@ export async function GET() {
       const topCategory = categoryBreakdown[0];
       const percentage = currentMonthTotal > 0 ? ((topCategory.total / currentMonthTotal) * 100).toFixed(1) : '0';
       insights.push(
-        `Highest spending in ${topCategory._id}: $${topCategory.total.toFixed(2)} (${percentage}% of total)`
+        `Highest spending in ${topCategory._id}: ${formatCurrency(topCategory.total)} (${percentage}% of total)`
       );
     }
 
@@ -136,9 +146,9 @@ export async function GET() {
       const percentUsed = ((currentMonthTotal / totalBudget) * 100).toFixed(1);
       
       if (remainingBudget >= 0) {
-        insights.push(`${percentUsed}% of total budget used, $${remainingBudget.toFixed(2)} remaining`);
+        insights.push(`${percentUsed}% of total budget used, ${formatCurrency(remainingBudget)} remaining`);
       } else {
-        insights.push(`Over total budget by $${Math.abs(remainingBudget).toFixed(2)}`);
+        insights.push(`Over total budget by ${formatCurrency(Math.abs(remainingBudget))}`);
       }
     }
 

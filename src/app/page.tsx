@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { MonthlyChart, CategoryPieChart, SpendingInsights } from '@/components/Charts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,9 +41,25 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const fetchSummary = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/statistics/summary');
+      if (!response.ok) {
+        throw new Error('Failed to fetch summary');
+      }
+      const data = await response.json();
+      setSummary(data);
+    } catch (error) {
+      console.error('Error fetching summary:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchSummary();
-  }, [refreshKey]);
+  }, [fetchSummary, refreshKey]);
 
   // Listen for transaction updates
   useEffect(() => {
@@ -62,22 +78,6 @@ export default function DashboardPage() {
     };
   }, []);
 
-  async function fetchSummary() {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/statistics/summary');
-      if (!response.ok) {
-        throw new Error('Failed to fetch summary');
-      }
-      const data = await response.json();
-      setSummary(data);
-    } catch (error) {
-      console.error('Error fetching summary:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -85,7 +85,7 @@ export default function DashboardPage() {
     }).format(value);
   };
 
-  const StatCard = ({ title, value, type, icon }: { title: string; value: number; type: 'expense' | 'income' | 'balance'; icon: string }) => (
+  const StatCard = ({ title, value, type, icon }: { title: string; value: number; type: 'expense' | 'income' | 'balance'; icon: string; loading: boolean }) => (
     <Card className="card-enhanced card-hover">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
@@ -130,18 +130,21 @@ export default function DashboardPage() {
           value={summary.totalExpenses} 
           type="expense"
           icon="💸"
+          loading={loading}
         />
         <StatCard 
           title="Total Income" 
           value={summary.totalIncome} 
           type="income"
           icon="💰"
+          loading={loading}
         />
         <StatCard 
           title="Current Balance" 
           value={summary.balance} 
           type="balance"
           icon="🏦"
+          loading={loading}
         />
       </div>
 
@@ -182,7 +185,7 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <SpendingInsights />
+            <SpendingInsights key={refreshKey} />
           </CardContent>
         </Card>
         
@@ -201,60 +204,30 @@ export default function DashboardPage() {
                 ))}
               </div>
             ) : summary.recentTransactions.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="text-4xl mb-4">📭</div>
-                <p className="text-muted-foreground">No recent transactions</p>
-                <p className="text-sm text-muted-foreground mt-1">Add your first transaction to get started</p>
+              <div className="text-center text-muted-foreground py-8">
+                <p>No recent transactions</p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="font-medium">Date</TableHead>
-                      <TableHead className="font-medium">Description</TableHead>
-                      <TableHead className="font-medium">Category</TableHead>
-                      <TableHead className="font-medium">Type</TableHead>
-                      <TableHead className="text-right font-medium">Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {summary.recentTransactions.map((transaction) => (
-                      <TableRow key={transaction._id} className="hover:bg-muted/30 transition-colors">
-                        <TableCell className="font-medium">
-                          {format(new Date(transaction.date), 'MMM d, yyyy')}
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate">
-                          {transaction.description}
-                        </TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary">
-                            {transaction.category}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className={cn(
-                            "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize",
-                            transaction.type === 'expense' 
-                              ? 'bg-destructive/10 text-destructive' 
-                              : 'bg-success/10 text-success'
-                          )}>
-                            {transaction.type}
-                          </span>
-                        </TableCell>
-                        <TableCell
-                          className={`text-right font-bold ${
-                            transaction.type === 'expense'
-                              ? 'text-destructive'
-                              : 'text-success'
-                          }`}
-                        >
-                          {formatCurrency(transaction.amount)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div className="space-y-4">
+                {summary.recentTransactions.map((transaction) => (
+                  <div
+                    key={transaction._id}
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium">{transaction.description}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {format(new Date(transaction.date), 'MMM d, yyyy')} • {transaction.category}
+                      </p>
+                    </div>
+                    <p className={cn(
+                      "font-medium",
+                      transaction.amount < 0 ? "text-destructive" : "text-success"
+                    )}>
+                      {formatCurrency(transaction.amount)}
+                    </p>
+                  </div>
+                ))}
               </div>
             )}
           </CardContent>

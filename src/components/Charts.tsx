@@ -307,20 +307,20 @@ export function BudgetComparisonChart() {
       setRefreshKey(prev => prev + 1);
     };
 
-    window.addEventListener('transaction-created', handleUpdate);
-    window.addEventListener('transaction-updated', handleUpdate);
-    window.addEventListener('transaction-deleted', handleUpdate);
     window.addEventListener('budget-created', handleUpdate);
     window.addEventListener('budget-updated', handleUpdate);
     window.addEventListener('budget-deleted', handleUpdate);
+    window.addEventListener('transaction-created', handleUpdate);
+    window.addEventListener('transaction-updated', handleUpdate);
+    window.addEventListener('transaction-deleted', handleUpdate);
     
     return () => {
-      window.removeEventListener('transaction-created', handleUpdate);
-      window.removeEventListener('transaction-updated', handleUpdate);
-      window.removeEventListener('transaction-deleted', handleUpdate);
       window.removeEventListener('budget-created', handleUpdate);
       window.removeEventListener('budget-updated', handleUpdate);
       window.removeEventListener('budget-deleted', handleUpdate);
+      window.removeEventListener('transaction-created', handleUpdate);
+      window.removeEventListener('transaction-updated', handleUpdate);
+      window.removeEventListener('transaction-deleted', handleUpdate);
     };
   }, []);
 
@@ -328,14 +328,28 @@ export function BudgetComparisonChart() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/statistics/budget-comparison');
-      
+
+      // Get current month's date range
+      const now = new Date();
+      const startDate = startOfMonth(now);
+      const endDate = endOfMonth(now);
+
+      const response = await fetch(
+        `/api/budgets/comparison?start=${startDate.toISOString()}&end=${endDate.toISOString()}`
+      );
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to fetch budget data');
       }
 
       const budgetData = await response.json();
+      
+      if (!Array.isArray(budgetData) || budgetData.length === 0) {
+        setData([]);
+        return;
+      }
+
       setData(budgetData);
     } catch (error) {
       console.error('Error fetching budget data:', error);
@@ -348,14 +362,14 @@ export function BudgetComparisonChart() {
   if (!mounted) return null;
 
   return (
-    <div>
+    <div className="w-full">
       {loading ? (
         <LoadingChart />
       ) : error ? (
         <ErrorMessage message={error} />
       ) : data.length === 0 ? (
         <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-          No budget data available
+          No budget data available for this month
         </div>
       ) : (
         <div className="h-[300px]">
@@ -365,11 +379,12 @@ export function BudgetComparisonChart() {
               <XAxis dataKey="category" />
               <YAxis tickFormatter={(value) => formatCurrency(value).replace('₹', '₹ ')} />
               <Tooltip
-                formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                formatter={(value: number, name: string) => [formatCurrency(value), name === 'actual' ? 'Spent' : name === 'budget' ? 'Budget' : 'Remaining']}
                 labelFormatter={(label) => `Category: ${label}`}
               />
-              <Bar dataKey="budget" fill="#4F46E5" name="Budget" />
-              <Bar dataKey="actual" fill="#10B981" name="Actual" />
+              <Bar dataKey="budget" fill="#22c55e" name="Budget" />
+              <Bar dataKey="actual" fill="#ef4444" name="Spent" />
+              <Bar dataKey="remaining" fill="#3b82f6" name="Remaining" />
             </BarChart>
           </ResponsiveContainer>
         </div>
