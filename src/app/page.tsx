@@ -39,15 +39,16 @@ export default function DashboardPage() {
     recentTransactions: [],
   });
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     fetchSummary();
-  }, []);
+  }, [refreshKey]);
 
   // Listen for transaction updates
   useEffect(() => {
     const handleTransactionUpdate = () => {
-      fetchSummary();
+      setRefreshKey(prev => prev + 1);
     };
 
     window.addEventListener('transaction-created', handleTransactionUpdate);
@@ -154,7 +155,7 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <MonthlyChart />
+            <MonthlyChart key={refreshKey} />
           </CardContent>
         </Card>
         
@@ -166,7 +167,7 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <CategoryPieChart />
+            <CategoryPieChart key={refreshKey} />
           </CardContent>
         </Card>
       </div>

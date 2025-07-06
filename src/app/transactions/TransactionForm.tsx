@@ -72,7 +72,6 @@ type TransactionFormData = z.infer<typeof formSchema>;
 export default function TransactionForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
   const [displayAmount, setDisplayAmount] = useState('');
 
   const form = useForm<RawFormData>({
@@ -84,7 +83,8 @@ export default function TransactionForm() {
       description: '',
       amount: '',
     },
-    mode: 'onSubmit',
+    mode: 'onChange',
+    delayError: 500,
   });
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,7 +127,6 @@ export default function TransactionForm() {
   const onSubmit = async (data: RawFormData) => {
     setIsSubmitting(true);
     setSubmitError(null);
-    setHasSubmitted(true);
     
     try {
       // Parse amount and handle validation
@@ -170,7 +169,6 @@ export default function TransactionForm() {
         amount: '',
       });
       setDisplayAmount('');
-      setHasSubmitted(false);
       
       // Dispatch custom event to refresh transaction list
       window.dispatchEvent(new CustomEvent('transaction-created'));
@@ -180,10 +178,6 @@ export default function TransactionForm() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const shouldShowError = (fieldName: keyof RawFormData) => {
-    return hasSubmitted && form.formState.errors[fieldName];
   };
 
   return (
@@ -199,31 +193,46 @@ export default function TransactionForm() {
 
       <div className="space-y-2">
         <Label className="text-sm font-medium">Transaction Type</Label>
-        <div className="flex gap-4">
-          <div className="flex items-center space-x-2">
-            <input
-              type="radio"
-              id="expense"
-              value="expense"
-              {...form.register('type')}
-              className="radio-primary"
-              defaultChecked
-            />
-            <Label htmlFor="expense" className="cursor-pointer">Expense</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <input
-              type="radio"
-              id="income"
-              value="income"
-              {...form.register('type')}
-              className="radio-primary"
-            />
-            <Label htmlFor="income" className="cursor-pointer">Income</Label>
-          </div>
-        </div>
-        {shouldShowError('type') && (
-          <p className="text-destructive text-sm">{form.formState.errors.type?.message}</p>
+        <Select 
+          value={form.watch('type')} 
+          onValueChange={(value: 'income' | 'expense') => form.setValue('type', value, { shouldValidate: true })}
+        >
+          <SelectTrigger className={cn(
+            form.formState.errors.type && "border-destructive focus-visible:ring-destructive/20"
+          )}>
+            <SelectValue placeholder="Select type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="income">Income</SelectItem>
+            <SelectItem value="expense">Expense</SelectItem>
+          </SelectContent>
+        </Select>
+        {form.formState.errors.type && (
+          <p className="text-destructive text-sm">{form.formState.errors.type.message}</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Category</Label>
+        <Select 
+          value={form.watch('category')} 
+          onValueChange={(value) => form.setValue('category', value, { shouldValidate: true })}
+        >
+          <SelectTrigger className={cn(
+            form.formState.errors.category && "border-destructive focus-visible:ring-destructive/20"
+          )}>
+            <SelectValue placeholder="Select a category" />
+          </SelectTrigger>
+          <SelectContent>
+            {transactionCategories.map((category) => (
+              <SelectItem key={category} value={category}>
+                {category}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {form.formState.errors.category && (
+          <p className="text-destructive text-sm">{form.formState.errors.category.message}</p>
         )}
       </div>
 
@@ -242,36 +251,12 @@ export default function TransactionForm() {
             onChange={handleAmountChange}
             className={cn(
               "pl-7",
-              shouldShowError('amount') && "border-destructive focus-visible:ring-destructive/20"
+              form.formState.errors.amount && "border-destructive focus-visible:ring-destructive/20"
             )}
           />
         </div>
-        {shouldShowError('amount') && (
-          <p className="text-destructive text-sm">{form.formState.errors.amount?.message}</p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Category</Label>
-        <Select 
-          value={form.watch('category')} 
-          onValueChange={(value) => form.setValue('category', value, { shouldValidate: true })}
-        >
-          <SelectTrigger className={cn(
-            shouldShowError('category') && "border-destructive focus-visible:ring-destructive/20"
-          )}>
-            <SelectValue placeholder="Select a category" />
-          </SelectTrigger>
-          <SelectContent>
-            {transactionCategories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {shouldShowError('category') && (
-          <p className="text-destructive text-sm">{form.formState.errors.category?.message}</p>
+        {form.formState.errors.amount && (
+          <p className="text-destructive text-sm">{form.formState.errors.amount.message}</p>
         )}
       </div>
 
@@ -284,11 +269,11 @@ export default function TransactionForm() {
           type="text"
           {...form.register('description')}
           className={cn(
-            shouldShowError('description') && "border-destructive focus-visible:ring-destructive/20"
+            form.formState.errors.description && "border-destructive focus-visible:ring-destructive/20"
           )}
         />
-        {shouldShowError('description') && (
-          <p className="text-destructive text-sm">{form.formState.errors.description?.message}</p>
+        {form.formState.errors.description && (
+          <p className="text-destructive text-sm">{form.formState.errors.description.message}</p>
         )}
       </div>
 
@@ -301,18 +286,18 @@ export default function TransactionForm() {
           type="date"
           {...form.register('date')}
           className={cn(
-            shouldShowError('date') && "border-destructive focus-visible:ring-destructive/20"
+            form.formState.errors.date && "border-destructive focus-visible:ring-destructive/20"
           )}
         />
-        {shouldShowError('date') && (
-          <p className="text-destructive text-sm">{form.formState.errors.date?.message}</p>
+        {form.formState.errors.date && (
+          <p className="text-destructive text-sm">{form.formState.errors.date.message}</p>
         )}
       </div>
 
       <Button
         type="submit"
         className="w-full"
-        disabled={isSubmitting}
+        disabled={isSubmitting || !form.formState.isValid}
       >
         {isSubmitting ? 'Creating...' : 'Create Transaction'}
       </Button>

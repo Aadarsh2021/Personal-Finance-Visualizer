@@ -64,6 +64,7 @@ export function MonthlyChart() {
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [timePeriod, setTimePeriod] = useState('1m');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -73,11 +74,11 @@ export function MonthlyChart() {
     if (mounted) {
       fetchMonthlyData();
     }
-  }, [mounted, timePeriod]);
+  }, [mounted, timePeriod, refreshKey]);
 
   useEffect(() => {
     const handleTransactionUpdate = () => {
-      fetchMonthlyData();
+      setRefreshKey(prev => prev + 1);
     };
 
     window.addEventListener('transaction-created', handleTransactionUpdate);
@@ -175,6 +176,7 @@ export function CategoryPieChart() {
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [timePeriod, setTimePeriod] = useState('1m');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -184,11 +186,11 @@ export function CategoryPieChart() {
     if (mounted) {
       fetchCategoryData();
     }
-  }, [mounted, timePeriod]);
+  }, [mounted, timePeriod, refreshKey]);
 
   useEffect(() => {
     const handleTransactionUpdate = () => {
-      fetchCategoryData();
+      setRefreshKey(prev => prev + 1);
     };
 
     window.addEventListener('transaction-created', handleTransactionUpdate);
@@ -286,8 +288,9 @@ export function CategoryPieChart() {
 export function BudgetComparisonChart() {
   const [data, setData] = useState<BudgetComparisonData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [timePeriod, setTimePeriod] = useState('1m');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -297,12 +300,11 @@ export function BudgetComparisonChart() {
     if (mounted) {
       fetchBudgetData();
     }
-  }, [mounted, timePeriod]);
+  }, [mounted, refreshKey]);
 
-  // Listen for transaction and budget updates
   useEffect(() => {
     const handleUpdate = () => {
-      fetchBudgetData();
+      setRefreshKey(prev => prev + 1);
     };
 
     window.addEventListener('transaction-created', handleUpdate);
@@ -320,74 +322,68 @@ export function BudgetComparisonChart() {
       window.removeEventListener('budget-updated', handleUpdate);
       window.removeEventListener('budget-deleted', handleUpdate);
     };
-  }, [mounted]);
+  }, []);
 
   async function fetchBudgetData() {
     try {
       setLoading(true);
-      const endDate = new Date();
-      const months = TIME_PERIODS.find(p => p.value === timePeriod)?.months || 1;
-      const startDate = subMonths(endDate, months);
-
-      const response = await fetch(
-        `/api/statistics/budget-comparison?start=${startOfMonth(startDate).toISOString()}&end=${endDate.toISOString()}`
-      );
-
+      setError(null);
+      const response = await fetch('/api/statistics/budget-comparison');
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch budget comparison data');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch budget data');
       }
 
       const budgetData = await response.json();
       setData(budgetData);
     } catch (error) {
-      console.error('Error fetching budget comparison data:', error);
+      console.error('Error fetching budget data:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load chart data');
     } finally {
       setLoading(false);
     }
   }
 
-  if (!mounted || loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Budget vs Actual</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <LoadingChart />
-        </CardContent>
-      </Card>
-    );
-  }
+  if (!mounted) return null;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Budget vs Actual</CardTitle>
-        <TimePeriodSelect value={timePeriod} onValueChange={setTimePeriod} />
-      </CardHeader>
-      <CardContent>
+    <div>
+      {loading ? (
+        <LoadingChart />
+      ) : error ? (
+        <ErrorMessage message={error} />
+      ) : data.length === 0 ? (
+        <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+          No budget data available
+        </div>
+      ) : (
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="category" />
               <YAxis tickFormatter={(value) => formatCurrency(value).replace('₹', '₹ ')} />
-              <Tooltip formatter={(value: number) => formatCurrency(value)} />
-              <Bar dataKey="budget" fill="#4ade80" name="Budget" />
-              <Bar dataKey="actual" fill="#f87171" name="Actual" />
-              <Bar dataKey="remaining" fill="#60a5fa" name="Remaining" />
+              <Tooltip
+                formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                labelFormatter={(label) => `Category: ${label}`}
+              />
+              <Bar dataKey="budget" fill="#4F46E5" name="Budget" />
+              <Bar dataKey="actual" fill="#10B981" name="Actual" />
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </CardContent>
-    </Card>
+      )}
+    </div>
   );
 }
 
 export function SpendingInsights() {
   const [insights, setInsights] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     setMounted(true);
@@ -397,30 +393,23 @@ export function SpendingInsights() {
     if (mounted) {
       fetchInsights();
     }
-  }, [mounted]);
+  }, [mounted, refreshKey]);
 
-  // Listen for transaction and budget updates
   useEffect(() => {
     const handleUpdate = () => {
-      fetchInsights();
+      setRefreshKey(prev => prev + 1);
     };
 
     window.addEventListener('transaction-created', handleUpdate);
     window.addEventListener('transaction-updated', handleUpdate);
     window.addEventListener('transaction-deleted', handleUpdate);
-    window.addEventListener('budget-created', handleUpdate);
-    window.addEventListener('budget-updated', handleUpdate);
-    window.addEventListener('budget-deleted', handleUpdate);
     
     return () => {
       window.removeEventListener('transaction-created', handleUpdate);
       window.removeEventListener('transaction-updated', handleUpdate);
       window.removeEventListener('transaction-deleted', handleUpdate);
-      window.removeEventListener('budget-created', handleUpdate);
-      window.removeEventListener('budget-updated', handleUpdate);
-      window.removeEventListener('budget-deleted', handleUpdate);
     };
-  }, [mounted]);
+  }, []);
 
   async function fetchInsights() {
     try {
@@ -430,51 +419,42 @@ export function SpendingInsights() {
         throw new Error('Failed to fetch insights');
       }
       const data = await response.json();
-      setInsights(data.insights || []);
-    } catch (error) {
+      setInsights(data.insights);
+    } catch (error: any) {
       console.error('Error fetching insights:', error);
+      setError(error);
     } finally {
       setLoading(false);
     }
   }
 
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Spending Insights</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="animate-pulse space-y-2">
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  if (!mounted) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Spending Insights</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {insights.length > 0 ? (
-          <div className="space-y-2">
-            {insights.map((insight, index) => (
-              <div key={index} className="text-sm text-gray-600 p-2 bg-gray-50 rounded">
-                {insight}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-gray-500">
-            No insights available yet. Add more transactions to see spending patterns.
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <div>
+      {loading ? (
+        <div className="animate-pulse space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="h-6 bg-muted rounded"></div>
+          ))}
+        </div>
+      ) : error ? (
+        <div className="text-destructive">
+          <p>Failed to load insights</p>
+          <p className="text-sm">{error.message}</p>
+        </div>
+      ) : insights.length === 0 ? (
+        <p className="text-muted-foreground">No insights available</p>
+      ) : (
+        <ul className="space-y-3">
+          {insights.map((insight, index) => (
+            <li key={index} className="flex items-start space-x-2">
+              <span className="text-lg">💡</span>
+              <span>{insight}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 } 
