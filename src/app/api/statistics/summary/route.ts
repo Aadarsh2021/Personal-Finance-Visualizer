@@ -1,18 +1,31 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import { Transaction } from '@/models/Transaction';
-import { startOfMonth, endOfMonth } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const start = searchParams.get('start');
+    const end = searchParams.get('end');
+
     await connectToDatabase();
 
-    // Get current month's date range
-    const now = new Date();
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
+    // Use provided date range or default to last 3 months
+    let monthStart: Date;
+    let monthEnd: Date;
 
-    // Get monthly totals
+    if (start && end) {
+      monthStart = new Date(start);
+      monthEnd = new Date(end);
+    } else {
+      const now = new Date();
+      const threeMonthsAgo = subMonths(now, 3);
+      monthStart = startOfMonth(threeMonthsAgo);
+      monthEnd = endOfMonth(now);
+    }
+
+    // Get monthly totals for last 3 months
     const monthlyTotals = await Transaction.aggregate([
       {
         $match: {
@@ -39,10 +52,10 @@ export async function GET() {
       },
     ]);
 
-    // Get recent transactions
+    // Get recent transactions (last 10 instead of 5 to show more data)
     const recentTransactions = await Transaction.find()
       .sort({ date: -1 })
-      .limit(5);
+      .limit(10);
 
     const summary = {
       totalExpenses: monthlyTotals[0]?.totalExpenses || 0,

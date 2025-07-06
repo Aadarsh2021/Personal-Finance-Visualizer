@@ -148,7 +148,7 @@ export default function BudgetList() {
       setDeleteBudget(null);
       fetchBudgets();
       // Dispatch event to refresh other components
-      window.dispatchEvent(new CustomEvent('budget-updated'));
+      window.dispatchEvent(new CustomEvent('budget-deleted'));
     } catch (error) {
       console.error('Error deleting budget:', error);
       alert('Failed to delete budget. Please try again.');

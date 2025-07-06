@@ -15,7 +15,7 @@ export async function connectToDatabase() {
 
   try {
     await mongoose.connect(MONGODB_URI, {
-      bufferCommands: false,
+      bufferCommands: true, // Changed from false to true
       maxPoolSize: 1,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,

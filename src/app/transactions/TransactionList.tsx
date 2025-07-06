@@ -111,6 +111,9 @@ export default function TransactionList() {
       setIsEditDialogOpen(false);
       setEditingTransaction(null);
       fetchTransactions();
+      
+      // Dispatch custom event to refresh charts and dashboard
+      window.dispatchEvent(new CustomEvent('transaction-updated'));
     } catch (error) {
       console.error('Error updating transaction:', error);
       alert('Failed to update transaction. Please try again.');
@@ -133,6 +136,9 @@ export default function TransactionList() {
       setIsDeleteDialogOpen(false);
       setDeleteTransaction(null);
       fetchTransactions();
+      
+      // Dispatch custom event to refresh charts and dashboard
+      window.dispatchEvent(new CustomEvent('transaction-deleted'));
     } catch (error) {
       console.error('Error deleting transaction:', error);
       // You could add a toast notification here instead of alert

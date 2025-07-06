@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { TimePeriodSelector, TimeRange } from './TimePeriodSelector';
 
 interface MonthlyData {
   month: string;
@@ -49,6 +50,14 @@ export function MonthlyChart() {
   const [data, setData] = useState<MonthlyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [timeRange, setTimeRange] = useState<TimeRange>(() => {
+    const now = new Date();
+    return {
+      start: startOfMonth(subMonths(now, 1)),
+      end: endOfMonth(now),
+      period: '1m'
+    };
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -58,18 +67,31 @@ export function MonthlyChart() {
     if (mounted) {
       fetchMonthlyData();
     }
+  }, [mounted, timeRange]);
+
+  // Listen for transaction updates
+  useEffect(() => {
+    const handleTransactionUpdate = () => {
+      fetchMonthlyData();
+    };
+
+    window.addEventListener('transaction-created', handleTransactionUpdate);
+    window.addEventListener('transaction-updated', handleTransactionUpdate);
+    window.addEventListener('transaction-deleted', handleTransactionUpdate);
+    
+    return () => {
+      window.removeEventListener('transaction-created', handleTransactionUpdate);
+      window.removeEventListener('transaction-updated', handleTransactionUpdate);
+      window.removeEventListener('transaction-deleted', handleTransactionUpdate);
+    };
   }, [mounted]);
 
   async function fetchMonthlyData() {
     try {
       setLoading(true);
-      const endDate = new Date();
-      const startDate = subMonths(endDate, 5);
 
       const response = await fetch(
-        `/api/statistics?start=${startOfMonth(startDate).toISOString()}&end=${endOfMonth(
-          endDate
-        ).toISOString()}`
+        `/api/statistics?start=${timeRange.start.toISOString()}&end=${timeRange.end.toISOString()}`
       );
 
       if (!response.ok) {
@@ -106,8 +128,12 @@ export function MonthlyChart() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Monthly Overview</CardTitle>
+        <TimePeriodSelector
+          value={timeRange}
+          onChange={setTimeRange}
+        />
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
@@ -133,19 +159,49 @@ export function MonthlyChart() {
 export function CategoryPieChart() {
   const [data, setData] = useState<CategoryData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  const [timeRange, setTimeRange] = useState<TimeRange>(() => {
+    const now = new Date();
+    return {
+      start: startOfMonth(subMonths(now, 1)),
+      end: endOfMonth(now),
+      period: '1m'
+    };
+  });
 
   useEffect(() => {
-    fetchCategoryData();
+    setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (mounted) {
+      fetchCategoryData();
+    }
+  }, [mounted, timeRange]);
+
+  // Listen for transaction updates
+  useEffect(() => {
+    const handleTransactionUpdate = () => {
+      fetchCategoryData();
+    };
+
+    window.addEventListener('transaction-created', handleTransactionUpdate);
+    window.addEventListener('transaction-updated', handleTransactionUpdate);
+    window.addEventListener('transaction-deleted', handleTransactionUpdate);
+    
+    return () => {
+      window.removeEventListener('transaction-created', handleTransactionUpdate);
+      window.removeEventListener('transaction-updated', handleTransactionUpdate);
+      window.removeEventListener('transaction-deleted', handleTransactionUpdate);
+    };
+  }, [mounted]);
 
   async function fetchCategoryData() {
     try {
       setLoading(true);
-      const endDate = new Date();
-      const startDate = startOfMonth(endDate);
 
       const response = await fetch(
-        `/api/statistics/categories?start=${startDate.toISOString()}&end=${endDate.toISOString()}`
+        `/api/statistics/categories?start=${timeRange.start.toISOString()}&end=${timeRange.end.toISOString()}`
       );
 
       if (!response.ok) {
@@ -167,8 +223,12 @@ export function CategoryPieChart() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Expense Categories</CardTitle>
+        <TimePeriodSelector
+          value={timeRange}
+          onChange={setTimeRange}
+        />
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
@@ -201,10 +261,40 @@ export function CategoryPieChart() {
 export function BudgetComparisonChart() {
   const [data, setData] = useState<BudgetComparisonData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    fetchBudgetData();
+    setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (mounted) {
+      fetchBudgetData();
+    }
+  }, [mounted]);
+
+  // Listen for transaction and budget updates
+  useEffect(() => {
+    const handleUpdate = () => {
+      fetchBudgetData();
+    };
+
+    window.addEventListener('transaction-created', handleUpdate);
+    window.addEventListener('transaction-updated', handleUpdate);
+    window.addEventListener('transaction-deleted', handleUpdate);
+    window.addEventListener('budget-created', handleUpdate);
+    window.addEventListener('budget-updated', handleUpdate);
+    window.addEventListener('budget-deleted', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('transaction-created', handleUpdate);
+      window.removeEventListener('transaction-updated', handleUpdate);
+      window.removeEventListener('transaction-deleted', handleUpdate);
+      window.removeEventListener('budget-created', handleUpdate);
+      window.removeEventListener('budget-updated', handleUpdate);
+      window.removeEventListener('budget-deleted', handleUpdate);
+    };
+  }, [mounted]);
 
   async function fetchBudgetData() {
     try {
@@ -264,10 +354,40 @@ export function BudgetComparisonChart() {
 export function SpendingInsights() {
   const [insights, setInsights] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    fetchInsights();
+    setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (mounted) {
+      fetchInsights();
+    }
+  }, [mounted]);
+
+  // Listen for transaction and budget updates
+  useEffect(() => {
+    const handleUpdate = () => {
+      fetchInsights();
+    };
+
+    window.addEventListener('transaction-created', handleUpdate);
+    window.addEventListener('transaction-updated', handleUpdate);
+    window.addEventListener('transaction-deleted', handleUpdate);
+    window.addEventListener('budget-created', handleUpdate);
+    window.addEventListener('budget-updated', handleUpdate);
+    window.addEventListener('budget-deleted', handleUpdate);
+    
+    return () => {
+      window.removeEventListener('transaction-created', handleUpdate);
+      window.removeEventListener('transaction-updated', handleUpdate);
+      window.removeEventListener('transaction-deleted', handleUpdate);
+      window.removeEventListener('budget-created', handleUpdate);
+      window.removeEventListener('budget-updated', handleUpdate);
+      window.removeEventListener('budget-deleted', handleUpdate);
+    };
+  }, [mounted]);
 
   async function fetchInsights() {
     try {
