@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import {
   BarChart,
   Bar,
@@ -39,15 +39,15 @@ interface BudgetComparisonData {
 
 const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5', '#9E579D', '#574B90'];
 
-function LoadingChart() {
+const LoadingChart = memo(function LoadingChart() {
   return (
     <div className="h-[300px] flex items-center justify-center">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
     </div>
   );
-}
+});
 
-function ErrorMessage({ message }: { message: string }) {
+const ErrorMessage = memo(function ErrorMessage({ message }: { message: string }) {
   return (
     <div className="h-[300px] flex items-center justify-center">
       <div className="text-destructive text-center">
@@ -56,9 +56,27 @@ function ErrorMessage({ message }: { message: string }) {
       </div>
     </div>
   );
-}
+});
 
-export function MonthlyChart() {
+const NoDataMessage = memo(function NoDataMessage() {
+  return (
+    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+      No data available for the selected period
+    </div>
+  );
+});
+
+const ChartContainer = memo(function ChartContainer({ children }: { children: React.ReactElement }) {
+  return (
+    <div className="h-[300px]">
+      <ResponsiveContainer width="100%" height="100%">
+        {children}
+      </ResponsiveContainer>
+    </div>
+  );
+});
+
+export const MonthlyChart = memo(function MonthlyChart() {
   const [data, setData] = useState<MonthlyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,38 +88,17 @@ export function MonthlyChart() {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
-    if (mounted) {
-      fetchMonthlyData();
-    }
-  }, [mounted, timePeriod, refreshKey]);
-
-  useEffect(() => {
-    const handleTransactionUpdate = () => {
-      setRefreshKey(prev => prev + 1);
-    };
-
-    window.addEventListener('transaction-created', handleTransactionUpdate);
-    window.addEventListener('transaction-updated', handleTransactionUpdate);
-    window.addEventListener('transaction-deleted', handleTransactionUpdate);
-    
-    return () => {
-      window.removeEventListener('transaction-created', handleTransactionUpdate);
-      window.removeEventListener('transaction-updated', handleTransactionUpdate);
-      window.removeEventListener('transaction-deleted', handleTransactionUpdate);
-    };
-  }, []);
-
-  async function fetchMonthlyData() {
+  const fetchMonthlyData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const endDate = new Date();
       const months = TIME_PERIODS.find(p => p.value === timePeriod)?.months || 1;
-      const startDate = subMonths(endDate, months - 1); // Subtract (months - 1) to include current month
+      const startDate = subMonths(endDate, months - 1);
 
       const response = await fetch(
-        `/api/statistics?start=${startOfMonth(startDate).toISOString()}&end=${endOfMonth(endDate).toISOString()}`
+        `/api/statistics?start=${startOfMonth(startDate).toISOString()}&end=${endOfMonth(endDate).toISOString()}`,
+        { cache: 'no-store' }
       );
 
       if (!response.ok) {
@@ -129,7 +126,51 @@ export function MonthlyChart() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [timePeriod]);
+
+  useEffect(() => {
+    if (mounted) {
+      fetchMonthlyData();
+    }
+  }, [mounted, fetchMonthlyData, refreshKey]);
+
+  useEffect(() => {
+    const handleTransactionUpdate = () => {
+      setRefreshKey(prev => prev + 1);
+    };
+
+    window.addEventListener('transaction-created', handleTransactionUpdate);
+    window.addEventListener('transaction-updated', handleTransactionUpdate);
+    window.addEventListener('transaction-deleted', handleTransactionUpdate);
+    
+    return () => {
+      window.removeEventListener('transaction-created', handleTransactionUpdate);
+      window.removeEventListener('transaction-updated', handleTransactionUpdate);
+      window.removeEventListener('transaction-deleted', handleTransactionUpdate);
+    };
+  }, []);
+
+  const chartContent = useMemo(() => {
+    if (loading) return <LoadingChart />;
+    if (error) return <ErrorMessage message={error} />;
+    if (data.length === 0) return <NoDataMessage />;
+
+    return (
+      <ChartContainer>
+        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="month" />
+          <YAxis tickFormatter={(value) => formatCurrency(value).replace('₹', '₹ ')} />
+          <Tooltip
+            formatter={(value: number, name: string) => [formatCurrency(value), name]}
+            labelFormatter={(label) => `Month: ${label}`}
+          />
+          <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
+          <Bar dataKey="income" fill="#22c55e" name="Income" />
+        </BarChart>
+      </ChartContainer>
+    );
+  }, [loading, error, data]);
 
   if (!mounted) return null;
   
@@ -140,35 +181,11 @@ export function MonthlyChart() {
         <TimePeriodSelect value={timePeriod} onValueChange={setTimePeriod} />
       </CardHeader>
       <CardContent>
-        {loading ? (
-          <LoadingChart />
-        ) : error ? (
-          <ErrorMessage message={error} />
-        ) : data.length === 0 ? (
-          <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-            No data available for the selected period
-          </div>
-        ) : (
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis tickFormatter={(value) => formatCurrency(value).replace('₹', '₹ ')} />
-                <Tooltip
-                  formatter={(value: number, name: string) => [formatCurrency(value), name]}
-                  labelFormatter={(label) => `Month: ${label}`}
-                />
-                <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
-                <Bar dataKey="income" fill="#22c55e" name="Income" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
+        {chartContent}
       </CardContent>
     </Card>
   );
-}
+});
 
 export function CategoryPieChart() {
   const [data, setData] = useState<CategoryData[]>([]);

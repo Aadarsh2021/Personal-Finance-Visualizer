@@ -28,3 +28,20 @@ export function parseCurrencyString(value: string): number {
   const cleanValue = value.replace(/[₹,\s]/g, '');
   return parseFloat(cleanValue);
 }
+
+export function debounce<T extends (...args: any[]) => void>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+
+  return function executedFunction(...args: Parameters<T>) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
