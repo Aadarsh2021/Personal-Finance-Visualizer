@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format } from 'date-fns';
 import { MonthlyChart, CategoryPieChart, SpendingInsights } from '@/components/Charts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { TimePeriodSelector, TimeRange } from '@/components/TimePeriodSelector';
 import Export from '@/components/Export';
 import {
   Table,
@@ -40,18 +39,10 @@ export default function DashboardPage() {
     recentTransactions: [],
   });
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<TimeRange>(() => {
-    const now = new Date();
-    return {
-      start: startOfMonth(subMonths(now, 1)),
-      end: endOfMonth(now),
-      period: '1m'
-    };
-  });
 
   useEffect(() => {
     fetchSummary();
-  }, [timeRange]);
+  }, []);
 
   // Listen for transaction updates
   useEffect(() => {
@@ -73,7 +64,7 @@ export default function DashboardPage() {
   async function fetchSummary() {
     try {
       setLoading(true);
-      const response = await fetch(`/api/statistics/summary?start=${timeRange.start.toISOString()}&end=${timeRange.end.toISOString()}`);
+      const response = await fetch('/api/statistics/summary');
       if (!response.ok) {
         throw new Error('Failed to fetch summary');
       }
@@ -107,9 +98,9 @@ export default function DashboardPage() {
             ${value.toFixed(2)}
           </p>
         )}
-          </CardContent>
-        </Card>
-    );
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-8">
@@ -119,11 +110,7 @@ export default function DashboardPage() {
         <p className="text-muted-foreground text-responsive">
           Track your finances and gain insights into your spending habits
         </p>
-        <div className="flex justify-center items-center gap-4 mt-4">
-          <TimePeriodSelector
-            value={timeRange}
-            onChange={setTimeRange}
-          />
+        <div className="flex justify-center mt-4">
           <Export transactions={summary.recentTransactions} summary={summary} />
         </div>
       </div>
@@ -163,7 +150,7 @@ export default function DashboardPage() {
             <MonthlyChart />
           </CardContent>
         </Card>
-
+        
         <Card className="card-enhanced">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -190,7 +177,7 @@ export default function DashboardPage() {
             <SpendingInsights />
           </CardContent>
         </Card>
-
+        
         <Card className="card-enhanced">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -260,7 +247,7 @@ export default function DashboardPage() {
                     ))}
                   </TableBody>
                 </Table>
-            </div>
+              </div>
             )}
           </CardContent>
         </Card>

@@ -4,9 +4,9 @@ const MONGODB_URI = process.env.MONGODB_URI;
 
 export async function connectToDatabase() {
   // Only connect if we have a URI and we're not already connected
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
-}
+  if (!MONGODB_URI) {
+    throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+  }
 
   // Check if already connected
   if (mongoose.connection.readyState === 1) {

@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get('year');
 
     await connectToDatabase();
-
+    
     let query = {};
     
     // If month and year are provided, filter by them
@@ -208,7 +208,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-
+    
     if (!id) {
       return NextResponse.json(
         { error: 'Budget ID is required' },

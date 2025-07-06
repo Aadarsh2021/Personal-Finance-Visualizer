@@ -3,27 +3,15 @@ import { connectToDatabase } from '@/lib/db';
 import { Transaction } from '@/models/Transaction';
 import { startOfMonth, endOfMonth, subMonths } from 'date-fns';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const start = searchParams.get('start');
-    const end = searchParams.get('end');
-
     await connectToDatabase();
 
-    // Use provided date range or default to last 3 months
-    let monthStart: Date;
-    let monthEnd: Date;
-
-    if (start && end) {
-      monthStart = new Date(start);
-      monthEnd = new Date(end);
-    } else {
-      const now = new Date();
-      const threeMonthsAgo = subMonths(now, 3);
-      monthStart = startOfMonth(threeMonthsAgo);
-      monthEnd = endOfMonth(now);
-    }
+    // Get last 3 months' date range
+    const now = new Date();
+    const threeMonthsAgo = subMonths(now, 3);
+    const monthStart = startOfMonth(threeMonthsAgo);
+    const monthEnd = endOfMonth(now);
 
     // Get monthly totals for last 3 months
     const monthlyTotals = await Transaction.aggregate([

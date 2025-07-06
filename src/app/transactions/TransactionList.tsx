@@ -226,7 +226,7 @@ export default function TransactionList() {
                           />
                         </div>
                         <div>
-        <Input
+                          <Input
                             type="date"
                             value={editFormData.date}
                             onChange={(e) => setEditFormData({
@@ -245,16 +245,16 @@ export default function TransactionList() {
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select a category" />
-          </SelectTrigger>
-          <SelectContent>
+                            </SelectTrigger>
+                            <SelectContent>
                               {transactionCategories.map((category) => (
                                 <SelectItem key={category} value={category}>
                                   {category}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div>
                           <Select
                             value={editFormData.type}
@@ -322,28 +322,28 @@ export default function TransactionList() {
                 }`}>
                   {deleteTransaction.amount >= 0 ? '+' : ''}${Math.abs(deleteTransaction.amount).toFixed(2)}
                 </p>
-      </div>
+              </div>
             )}
             <p className="text-sm text-red-600">
               This action cannot be undone.
             </p>
             <div className="flex space-x-2">
-          <Button
+              <Button
                 variant="destructive"
                 onClick={() => deleteTransaction && handleDelete(deleteTransaction._id)}
                 className="flex-1"
-          >
+              >
                 Delete
-          </Button>
-          <Button
-            variant="outline"
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => setIsDeleteDialogOpen(false)}
                 className="flex-1"
-          >
+              >
                 Cancel
-          </Button>
-        </div>
-      </div>
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
