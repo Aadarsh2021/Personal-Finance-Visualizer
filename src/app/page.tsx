@@ -77,6 +77,13 @@ export default function DashboardPage() {
     }
   }
 
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+    }).format(value);
+  };
+
   const StatCard = ({ title, value, type, icon }: { title: string; value: number; type: 'expense' | 'income' | 'balance'; icon: string }) => (
     <Card className="card-enhanced card-hover">
       <CardHeader className="pb-3">
@@ -95,7 +102,7 @@ export default function DashboardPage() {
             type === 'income' ? 'text-success' : 
             value >= 0 ? 'text-success' : 'text-destructive'
           )}>
-            ${value.toFixed(2)}
+            {formatCurrency(value)}
           </p>
         )}
       </CardContent>
@@ -241,7 +248,7 @@ export default function DashboardPage() {
                               : 'text-success'
                           }`}
                         >
-                          ${transaction.amount.toFixed(2)}
+                          {formatCurrency(transaction.amount)}
                         </TableCell>
                       </TableRow>
                     ))}

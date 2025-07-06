@@ -15,19 +15,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { transactionCategories } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, formatAmount, parseCurrencyString } from '@/lib/utils';
 import { format } from 'date-fns';
 
 const formSchema = z.object({
   amount: z.string()
     .min(1, 'Amount is required')
     .transform((val) => {
-      const cleanVal = val.replace(/[$,]/g, '');
+      const cleanVal = val.replace(/[₹,\s]/g, '');
       const number = parseFloat(cleanVal);
       if (isNaN(number)) {
         throw new Error('Invalid amount');
       }
-      return number;
+      if (number > 999999999999.99) { // Limit to 12 digits before decimal
+        throw new Error('Amount is too large');
+      }
+      return parseFloat(number.toFixed(2)); // Ensure 2 decimal places
     })
     .refine((val) => val !== 0, 'Amount cannot be zero'),
   description: z.string().min(1, 'Description is required'),
@@ -57,6 +60,7 @@ export default function TransactionForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [displayAmount, setDisplayAmount] = useState('');
 
   // Get today's date in YYYY-MM-DD format for the max attribute
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -72,6 +76,34 @@ export default function TransactionForm() {
     },
     mode: 'onSubmit',
   });
+
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    
+    // Remove all non-numeric characters except decimal point
+    value = value.replace(/[^\d.]/g, '');
+    
+    // Handle multiple decimal points
+    const decimalCount = (value.match(/\./g) || []).length;
+    if (decimalCount > 1) {
+      const parts = value.split('.');
+      value = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    // Handle decimal places
+    if (value.includes('.')) {
+      const [whole, decimal] = value.split('.');
+      // Limit whole number to 12 digits
+      value = whole.slice(0, 12) + '.' + (decimal || '').slice(0, 2);
+    } else {
+      // Limit whole number to 12 digits when no decimal
+      value = value.slice(0, 12);
+    }
+
+    // Set the raw value for both display and form
+    setDisplayAmount(value);
+    form.setValue('amount', value);
+  };
 
   const onSubmit = async (data: TransactionFormData) => {
     console.log('Form submitted with data:', data);
@@ -114,6 +146,7 @@ export default function TransactionForm() {
         description: '',
         amount: '',
       });
+      setDisplayAmount('');
       setHasSubmitted(false);
       
       // Dispatch custom event to refresh transaction list
@@ -124,22 +157,6 @@ export default function TransactionForm() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value;
-    value = value.replace(/[^\d.-]/g, '');
-    
-    const parts = value.split('.');
-    if (parts.length > 2) {
-      value = parts[0] + '.' + parts.slice(1).join('');
-    }
-    
-    if (parts.length === 2 && parts[1].length > 2) {
-      value = parts[0] + '.' + parts[1].slice(0, 2);
-    }
-
-    form.setValue('amount', value);
   };
 
   const shouldShowError = (fieldName: keyof RawFormData) => {
@@ -159,18 +176,23 @@ export default function TransactionForm() {
 
       <div className="space-y-2">
         <Label htmlFor="amount" className="text-sm font-medium">
-          Amount
+          Amount (₹)
         </Label>
-        <Input
-          id="amount"
-          type="text"
-          placeholder="0.00"
-          {...form.register('amount')}
-          onChange={handleAmountChange}
-          className={cn(
-            shouldShowError('amount') && "border-destructive focus-visible:ring-destructive/20"
-          )}
-        />
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+          <Input
+            id="amount"
+            type="text"
+            inputMode="decimal"
+            placeholder="0.00"
+            value={displayAmount}
+            onChange={handleAmountChange}
+            className={cn(
+              "pl-7",
+              shouldShowError('amount') && "border-destructive focus-visible:ring-destructive/20"
+            )}
+          />
+        </div>
         {shouldShowError('amount') && (
           <p className="text-destructive text-xs">{form.formState.errors.amount?.message}</p>
         )}
@@ -180,7 +202,7 @@ export default function TransactionForm() {
         <Label htmlFor="description" className="text-sm font-medium">
           Description
         </Label>
-                <Input
+        <Input
           id="description"
           type="text"
           placeholder="Enter transaction description"
@@ -188,10 +210,10 @@ export default function TransactionForm() {
           className={cn(
             shouldShowError('description') && "border-destructive focus-visible:ring-destructive/20"
           )}
-                />
+        />
         {shouldShowError('description') && (
           <p className="text-destructive text-xs">{form.formState.errors.description?.message}</p>
-          )}
+        )}
       </div>
 
       <div className="space-y-2">
@@ -227,18 +249,18 @@ export default function TransactionForm() {
             )}
           >
             <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                <SelectContent>
-                  {transactionCategories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          </SelectTrigger>
+          <SelectContent>
+            {transactionCategories.map((category) => (
+              <SelectItem key={category} value={category}>
+                {category}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {shouldShowError('category') && (
           <p className="text-destructive text-xs">{form.formState.errors.category?.message}</p>
-          )}
+        )}
       </div>
 
       <div className="space-y-2">
@@ -251,7 +273,7 @@ export default function TransactionForm() {
         >
           <SelectTrigger 
             id="type"
-                      className={cn(
+            className={cn(
               shouldShowError('type') && "border-destructive focus-visible:ring-destructive/20"
             )}
           >
@@ -264,7 +286,7 @@ export default function TransactionForm() {
         </Select>
         {shouldShowError('type') && (
           <p className="text-destructive text-xs">{form.formState.errors.type?.message}</p>
-          )}
+        )}
       </div>
 
       <Button 
@@ -281,7 +303,7 @@ export default function TransactionForm() {
         ) : (
           'Create Transaction'
         )}
-        </Button>
-      </form>
+      </Button>
+    </form>
   );
 } 

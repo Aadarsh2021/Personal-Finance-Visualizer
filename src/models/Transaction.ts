@@ -6,6 +6,12 @@ const transactionSchema = new mongoose.Schema({
   amount: {
     type: Number,
     required: true,
+    validate: {
+      validator: function(value: number) {
+        return value >= -999999999999.99 && value <= 999999999999.99;
+      },
+      message: 'Amount must be between -999,999,999,999.99 and 999,999,999,999.99'
+    }
   },
   description: {
     type: String,

@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { transactionCategories } from '@/types';
+import { formatCurrency, formatAmount } from '@/lib/utils';
 
 export default function TransactionList() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -73,7 +74,7 @@ export default function TransactionList() {
   const handleEdit = (transaction: Transaction) => {
     setEditingTransaction(transaction);
     setEditFormData({
-      amount: Math.abs(transaction.amount).toString(),
+      amount: formatAmount(Math.abs(transaction.amount)),
       description: transaction.description,
       date: new Date(transaction.date).toISOString().split('T')[0],
       category: transaction.category,
@@ -82,13 +83,60 @@ export default function TransactionList() {
     setIsEditDialogOpen(true);
   };
 
+  const handleAmountChange = (value: string) => {
+    // Remove all non-numeric characters except decimal point
+    value = value.replace(/[^\d.]/g, '');
+    
+    // Handle multiple decimal points
+    const decimalCount = (value.match(/\./g) || []).length;
+    if (decimalCount > 1) {
+      const parts = value.split('.');
+      value = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    // Handle decimal places
+    if (value.includes('.')) {
+      const [whole, decimal] = value.split('.');
+      // Limit whole number to 12 digits
+      value = whole.slice(0, 12) + '.' + (decimal || '').slice(0, 2);
+    } else {
+      // Limit whole number to 12 digits when no decimal
+      value = value.slice(0, 12);
+    }
+
+    // Format the display value
+    const numericValue = parseFloat(value);
+    if (!isNaN(numericValue)) {
+      setEditFormData({
+        ...editFormData,
+        amount: formatAmount(numericValue),
+      });
+    } else {
+      setEditFormData({
+        ...editFormData,
+        amount: value === '' ? '' : editFormData.amount,
+      });
+    }
+  };
+
   const handleUpdate = async () => {
     if (!editingTransaction) return;
 
     try {
+      const rawAmount = editFormData.amount.replace(/[₹,\s]/g, '');
+      const numericAmount = parseFloat(parseFloat(rawAmount).toFixed(2));
+      
+      if (isNaN(numericAmount)) {
+        throw new Error('Invalid amount');
+      }
+
+      if (numericAmount > 999999999999.99) {
+        throw new Error('Amount is too large');
+      }
+
       const finalAmount = editFormData.type === 'expense' 
-        ? -Math.abs(parseFloat(editFormData.amount)) 
-        : Math.abs(parseFloat(editFormData.amount));
+        ? -Math.abs(numericAmount) 
+        : Math.abs(numericAmount);
 
       const response = await fetch(`/api/transactions?id=${editingTransaction._id}`, {
         method: 'PUT',
@@ -184,8 +232,8 @@ export default function TransactionList() {
                       : 'text-red-600'
                   }`}
                 >
-                  {transaction.amount >= 0 ? '+' : ''}$
-                  {Math.abs(transaction.amount).toFixed(2)}
+                  {transaction.amount >= 0 ? '+' : ''}
+                  {formatCurrency(transaction.amount)}
                 </div>
                 <div className="flex space-x-1">
                   <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -204,15 +252,17 @@ export default function TransactionList() {
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
-                          <Input
-                            type="text"
-                            placeholder="Amount"
-                            value={editFormData.amount}
-                            onChange={(e) => setEditFormData({
-                              ...editFormData,
-                              amount: e.target.value.replace(/[^\d.-]/g, '')
-                            })}
-                          />
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              value={editFormData.amount}
+                              onChange={(e) => handleAmountChange(e.target.value)}
+                              className="pl-7"
+                            />
+                          </div>
                         </div>
                         <div>
                           <Input
@@ -226,7 +276,7 @@ export default function TransactionList() {
                           />
                         </div>
                         <div>
-        <Input
+                          <Input
                             type="date"
                             value={editFormData.date}
                             onChange={(e) => setEditFormData({
@@ -245,44 +295,41 @@ export default function TransactionList() {
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select a category" />
-          </SelectTrigger>
-          <SelectContent>
+                            </SelectTrigger>
+                            <SelectContent>
                               {transactionCategories.map((category) => (
                                 <SelectItem key={category} value={category}>
                                   {category}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div>
                           <Select
                             value={editFormData.type}
-                            onValueChange={(value) => setEditFormData({
+                            onValueChange={(value: 'income' | 'expense') => setEditFormData({
                               ...editFormData,
-                              type: value as 'income' | 'expense'
+                              type: value
                             })}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Select type" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="expense">Expense</SelectItem>
-                              <SelectItem value="income">Income</SelectItem>
+                              <SelectItem value="expense">💸 Expense</SelectItem>
+                              <SelectItem value="income">💰 Income</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="flex space-x-2">
-                          <Button onClick={handleUpdate} className="flex-1">
-                            Update
-                          </Button>
+                        <div className="flex justify-end space-x-2">
                           <Button
                             variant="outline"
                             onClick={() => setIsEditDialogOpen(false)}
-                            className="flex-1"
                           >
                             Cancel
                           </Button>
+                          <Button onClick={handleUpdate}>Save Changes</Button>
                         </div>
                       </div>
                     </DialogContent>
@@ -301,49 +348,26 @@ export default function TransactionList() {
         </Card>
       ))}
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Transaction</DialogTitle>
+            <DialogTitle>Confirm Delete</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-gray-600">
-              Are you sure you want to delete this transaction?
-            </p>
-            {deleteTransaction && (
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="font-medium">{deleteTransaction.description}</p>
-                <p className="text-sm text-gray-600">
-                  {format(new Date(deleteTransaction.date), 'PPP')} • {deleteTransaction.category}
-                </p>
-                <p className={`font-bold ${
-                  deleteTransaction.amount >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {deleteTransaction.amount >= 0 ? '+' : ''}${Math.abs(deleteTransaction.amount).toFixed(2)}
-                </p>
-      </div>
-            )}
-            <p className="text-sm text-red-600">
-              This action cannot be undone.
-            </p>
-            <div className="flex space-x-2">
-          <Button
-                variant="destructive"
-                onClick={() => deleteTransaction && handleDelete(deleteTransaction._id)}
-                className="flex-1"
-          >
-                Delete
-          </Button>
-          <Button
-            variant="outline"
-                onClick={() => setIsDeleteDialogOpen(false)}
-                className="flex-1"
-          >
-                Cancel
-          </Button>
-        </div>
-      </div>
+          <p>Are you sure you want to delete this transaction?</p>
+          <div className="flex justify-end space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteTransaction && handleDelete(deleteTransaction._id)}
+            >
+              Delete
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

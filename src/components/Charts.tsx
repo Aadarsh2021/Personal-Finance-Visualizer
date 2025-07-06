@@ -17,6 +17,7 @@ import {
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TimePeriodSelect, TIME_PERIODS } from '@/components/ui/time-period-select';
+import { formatCurrency } from '@/lib/utils';
 
 interface MonthlyData {
   month: string;
@@ -134,9 +135,9 @@ export function MonthlyChart() {
             <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
-              <YAxis />
+              <YAxis tickFormatter={(value) => formatCurrency(value).replace('₹', '₹ ')} />
               <Tooltip
-                formatter={(value: number) => [`$${value.toFixed(2)}`, '']}
+                formatter={(value: number) => [formatCurrency(value), '']}
                 labelFormatter={(label) => `Month: ${label}`}
               />
               <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
@@ -234,7 +235,7 @@ export function CategoryPieChart() {
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: number) => `$${value.toFixed(2)}`} />
+              <Tooltip formatter={(value: number) => formatCurrency(value)} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -332,8 +333,8 @@ export function BudgetComparisonChart() {
             <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="category" />
-              <YAxis />
-              <Tooltip formatter={(value: number) => `$${value.toFixed(2)}`} />
+              <YAxis tickFormatter={(value) => formatCurrency(value).replace('₹', '₹ ')} />
+              <Tooltip formatter={(value: number) => formatCurrency(value)} />
               <Bar dataKey="budget" fill="#4ade80" name="Budget" />
               <Bar dataKey="actual" fill="#f87171" name="Actual" />
               <Bar dataKey="remaining" fill="#60a5fa" name="Remaining" />

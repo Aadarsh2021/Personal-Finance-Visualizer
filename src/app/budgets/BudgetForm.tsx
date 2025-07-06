@@ -16,12 +16,27 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { transactionCategories } from '@/types';
+import { formatAmount } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   category: z.string().min(1, 'Category is required'),
-  amount: z.coerce
-    .number({ required_error: 'Amount is required' })
-    .min(0.01, 'Amount must be positive'),
+  amount: z.string()
+    .min(1, 'Amount is required')
+    .transform((val) => {
+      const cleanVal = val.replace(/[₹,\s]/g, '');
+      const number = parseFloat(cleanVal);
+      if (isNaN(number)) {
+        throw new Error('Invalid amount');
+      }
+      if (number > 999999999999.99) { // Limit to 12 digits before decimal
+        throw new Error('Amount is too large');
+      }
+      if (number <= 0) {
+        throw new Error('Amount must be positive');
+      }
+      return parseFloat(number.toFixed(2)); // Ensure 2 decimal places
+    }),
   month: z.coerce
     .number({ required_error: 'Month is required' })
     .min(1, 'Month must be between 1 and 12')
@@ -32,33 +47,88 @@ const formSchema = z.object({
   completed: z.boolean().default(false),
 });
 
-type BudgetFormData = z.infer<typeof formSchema>;
+type RawFormData = {
+  category: string;
+  amount: string;
+  month: number;
+  year: number;
+  completed: boolean;
+};
+
+type ProcessedFormData = {
+  category: string;
+  amount: number;
+  month: number;
+  year: number;
+  completed: boolean;
+};
 
 export default function BudgetForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [displayAmount, setDisplayAmount] = useState('');
 
-  const form = useForm<BudgetFormData>({
+  const form = useForm<RawFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       month: new Date().getMonth() + 1,
       year: new Date().getFullYear(),
       category: '',
+      amount: '',
       completed: false,
     },
   });
 
-  const onSubmit = async (data: BudgetFormData) => {
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    
+    // Remove all non-numeric characters except decimal point
+    value = value.replace(/[^\d.]/g, '');
+    
+    // Handle multiple decimal points
+    const decimalCount = (value.match(/\./g) || []).length;
+    if (decimalCount > 1) {
+      const parts = value.split('.');
+      value = parts[0] + '.' + parts.slice(1).join('');
+    }
+    
+    // Handle decimal places
+    if (value.includes('.')) {
+      const [whole, decimal] = value.split('.');
+      // Limit whole number to 12 digits
+      value = whole.slice(0, 12) + '.' + (decimal || '').slice(0, 2);
+    } else {
+      // Limit whole number to 12 digits when no decimal
+      value = value.slice(0, 12);
+    }
+
+    // Set the raw value for both display and form
+    setDisplayAmount(value);
+    form.setValue('amount', value);
+  };
+
+  const onSubmit = async (data: RawFormData) => {
     setIsSubmitting(true);
     setSubmitError(null);
 
     try {
+      // Parse the amount string to number
+      const amount = parseFloat(data.amount.replace(/[₹,\s]/g, ''));
+      if (isNaN(amount)) {
+        throw new Error('Invalid amount');
+      }
+
+      const processedData: ProcessedFormData = {
+        ...data,
+        amount: amount,
+      };
+
       const response = await fetch('/api/budgets', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(processedData),
       });
 
       if (!response.ok) {
@@ -71,8 +141,10 @@ export default function BudgetForm() {
         month: data.month,
         year: data.year,
         category: '',
+        amount: '',
         completed: false,
       });
+      setDisplayAmount('');
 
       // Dispatch custom event to refresh budget list
       window.dispatchEvent(new CustomEvent('budget-created'));
@@ -119,13 +191,24 @@ export default function BudgetForm() {
       </div>
 
       <div>
-        <Input
-          type="number"
-          placeholder="Amount"
-          step="0.01"
-          {...form.register('amount')}
-          className={form.formState.errors.amount ? 'border-red-500' : ''}
-        />
+        <Label htmlFor="amount" className="text-sm font-medium">
+          Amount (₹)
+        </Label>
+        <div className="relative">
+          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+          <Input
+            id="amount"
+            type="text"
+            inputMode="decimal"
+            placeholder="0.00"
+            value={displayAmount}
+            onChange={handleAmountChange}
+            className={cn(
+              "pl-7",
+              form.formState.errors.amount ? "border-red-500" : ""
+            )}
+          />
+        </div>
         {form.formState.errors.amount && form.formState.touchedFields.amount && (
           <p className="text-red-500 text-sm mt-1">{form.formState.errors.amount.message}</p>
         )}

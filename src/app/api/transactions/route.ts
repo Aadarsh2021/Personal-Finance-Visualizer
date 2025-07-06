@@ -8,6 +8,22 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { amount, description, date, category, type } = body;
 
+    // Validate amount
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount)) {
+      return NextResponse.json(
+        { error: 'Invalid amount' },
+        { status: 400 }
+      );
+    }
+
+    if (numericAmount < -999999999999.99 || numericAmount > 999999999999.99) {
+      return NextResponse.json(
+        { error: 'Amount must be between -999,999,999,999.99 and 999,999,999,999.99' },
+        { status: 400 }
+      );
+    }
+
     // Validate category
     if (!transactionCategories.includes(category)) {
       return NextResponse.json(
@@ -26,7 +42,7 @@ export async function POST(request: Request) {
 
     await connectToDatabase();
     const transaction = await Transaction.create({
-      amount,
+      amount: parseFloat(numericAmount.toFixed(2)), // Ensure 2 decimal places
       description,
       date,
       category,
@@ -69,10 +85,32 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
+    
+    // Validate amount if it's being updated
+    if (body.amount !== undefined) {
+      const numericAmount = parseFloat(body.amount);
+      if (isNaN(numericAmount)) {
+        return NextResponse.json(
+          { error: 'Invalid amount' },
+          { status: 400 }
+        );
+      }
+
+      if (numericAmount < -999999999999.99 || numericAmount > 999999999999.99) {
+        return NextResponse.json(
+          { error: 'Amount must be between -999,999,999,999.99 and 999,999,999,999.99' },
+          { status: 400 }
+        );
+      }
+
+      body.amount = parseFloat(numericAmount.toFixed(2)); // Ensure 2 decimal places
+    }
+
     await connectToDatabase();
 
     const transaction = await Transaction.findByIdAndUpdate(id, body, {
       new: true,
+      runValidators: true, // This ensures mongoose validations run on update
     });
 
     if (!transaction) {

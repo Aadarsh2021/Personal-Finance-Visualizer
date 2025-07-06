@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/select';
 import { transactionCategories } from '@/types';
 import { CheckCircle, XCircle } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
+import { Label } from '@/components/ui/label';
 
 export default function BudgetList() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -196,7 +198,7 @@ export default function BudgetList() {
                   {getMonthName(budget.month)} {budget.year}
                 </p>
                 <p className="text-sm text-gray-600">
-                  Budget: ${budget.amount.toFixed(2)}
+                  Budget: {formatCurrency(budget.amount)}
                 </p>
                 {budget.completed && (
                   <p className="text-xs text-red-600 font-medium">
@@ -206,7 +208,7 @@ export default function BudgetList() {
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
                 <div className={`font-bold ${budget.completed ? 'text-gray-500' : 'text-blue-600'}`}>
-                  ${budget.amount.toFixed(2)}
+                  {formatCurrency(budget.amount)}
                 </div>
                 <div className="flex flex-wrap gap-1">
                   <Button
@@ -249,7 +251,7 @@ export default function BudgetList() {
                             value={editFormData.category}
                             onValueChange={(value) => setEditFormData({
                               ...editFormData,
-                              category: value
+                              category: value,
                             })}
                           >
                             <SelectTrigger>
@@ -264,24 +266,44 @@ export default function BudgetList() {
                             </SelectContent>
                           </Select>
                         </div>
+
                         <div>
-                          <Input
-                            type="number"
-                            placeholder="Amount"
-                            step="0.01"
-                            value={editFormData.amount}
-                            onChange={(e) => setEditFormData({
-                              ...editFormData,
-                              amount: e.target.value
-                            })}
-                          />
+                          <Label htmlFor="amount" className="text-sm font-medium">
+                            Amount (₹)
+                          </Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+                            <Input
+                              id="amount"
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              value={editFormData.amount}
+                              onChange={(e) => {
+                                let value = e.target.value;
+                                value = value.replace(/[^\d.]/g, '');
+                                if (value.includes('.')) {
+                                  const [whole, decimal] = value.split('.');
+                                  value = whole.slice(0, 12) + '.' + (decimal || '').slice(0, 2);
+                                } else {
+                                  value = value.slice(0, 12);
+                                }
+                                setEditFormData({
+                                  ...editFormData,
+                                  amount: value,
+                                });
+                              }}
+                              className="pl-7"
+                            />
+                          </div>
                         </div>
+
                         <div>
                           <Select
                             value={editFormData.month}
                             onValueChange={(value) => setEditFormData({
                               ...editFormData,
-                              month: value
+                              month: value,
                             })}
                           >
                             <SelectTrigger>
@@ -290,7 +312,7 @@ export default function BudgetList() {
                             <SelectContent>
                               {Array.from({ length: 12 }, (_, i) => ({
                                 value: (i + 1).toString(),
-                                label: new Date(2000, i).toLocaleString('default', { month: 'long' })
+                                label: new Date(2000, i).toLocaleString('default', { month: 'long' }),
                               })).map(({ value, label }) => (
                                 <SelectItem key={value} value={value}>
                                   {label}
@@ -299,6 +321,7 @@ export default function BudgetList() {
                             </SelectContent>
                           </Select>
                         </div>
+
                         <div>
                           <Input
                             type="number"
@@ -307,25 +330,26 @@ export default function BudgetList() {
                             value={editFormData.year}
                             onChange={(e) => setEditFormData({
                               ...editFormData,
-                              year: e.target.value
+                              year: e.target.value,
                             })}
                           />
                         </div>
-                        <div className="flex space-x-2">
-                          <Button onClick={handleUpdate} className="flex-1">
-                            Update
-                          </Button>
+
+                        <div className="flex justify-end space-x-2">
                           <Button
                             variant="outline"
                             onClick={() => setIsEditDialogOpen(false)}
-                            className="flex-1"
                           >
                             Cancel
+                          </Button>
+                          <Button onClick={handleUpdate}>
+                            Update Budget
                           </Button>
                         </div>
                       </div>
                     </DialogContent>
                   </Dialog>
+
                   <Button
                     variant="destructive"
                     size="sm"
@@ -347,42 +371,19 @@ export default function BudgetList() {
             <DialogTitle>Delete Budget</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-gray-600">
-              Are you sure you want to delete this budget?
-            </p>
-            {deleteBudget && (
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <p className="font-medium">{deleteBudget.category}</p>
-                <p className="text-sm text-gray-600">
-                  {getMonthName(deleteBudget.month)} {deleteBudget.year}
-                </p>
-                <p className="font-bold text-blue-600">
-                  ${deleteBudget.amount.toFixed(2)}
-                </p>
-                {deleteBudget.completed && (
-                  <p className="text-xs text-green-600 font-medium">
-                    ✓ Completed Budget
-                  </p>
-                )}
-              </div>
-            )}
-            <p className="text-sm text-red-600">
-              This action cannot be undone. All budget data will be permanently deleted.
-            </p>
-            <div className="flex space-x-2">
-              <Button
-                variant="destructive"
-                onClick={() => deleteBudget && handleDelete(deleteBudget._id)}
-                className="flex-1"
-              >
-                Delete Budget
-              </Button>
+            <p>Are you sure you want to delete this budget?</p>
+            <div className="flex justify-end space-x-2">
               <Button
                 variant="outline"
                 onClick={() => setIsDeleteDialogOpen(false)}
-                className="flex-1"
               >
                 Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteBudget && handleDelete(deleteBudget._id)}
+              >
+                Delete
               </Button>
             </div>
           </div>
