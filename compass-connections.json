@@ -1,0 +1,26 @@
+{
+  "type": "Compass Connections",
+  "version": {
+    "$numberInt": "1"
+  },
+  "connections": [
+    {
+      "id": "83a08480-9317-4889-ae20-9f3a4975f306",
+      "lastUsed": {
+        "$date": {
+          "$numberLong": "1751778385797"
+        }
+      },
+      "favorite": {
+        "name": "finance visualizer"
+      },
+      "savedConnectionType": "recent",
+      "connectionOptions": {
+        "connectionString": "mongodb://localhost:27017/finance_visualizer",
+        "oidc": {
+          "serializedState": "eyJvaWRjUGx1Z2luU3RhdGVWZXJzaW9uIjowLCJzdGF0ZSI6W119"
+        }
+      }
+    }
+  ]
+}
