@@ -50,13 +50,13 @@ export default function BudgetsPage() {
   if (error) {
     return (
       <div className="space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="heading-responsive font-bold text-gradient">Budget Management</h1>
-          <p className="text-muted-foreground text-responsive">
+        <div className="dashboard-header">
+          <h1 className="gradient-text heading-responsive">Budget Management</h1>
+          <p className="text-muted-foreground text-responsive mt-2">
             Set budgets, track spending, and manage your financial goals
           </p>
         </div>
-        <div className="bg-destructive/10 border border-destructive/20 p-6 rounded-lg">
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6">
           <div className="flex items-center space-x-3">
             <div className="text-2xl">⚠️</div>
             <div>
@@ -78,15 +78,30 @@ export default function BudgetsPage() {
   if (!mounted) {
     return (
       <div className="space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="heading-responsive font-bold text-gradient">Budget Management</h1>
-          <p className="text-muted-foreground text-responsive">
+        <div className="dashboard-header">
+          <h1 className="gradient-text heading-responsive">Budget Management</h1>
+          <p className="text-muted-foreground text-responsive mt-2">
             Set budgets, track spending, and manage your financial goals
           </p>
         </div>
-        <div className="animate-pulse space-y-8">
-          <div className="h-[300px] bg-muted rounded-lg"></div>
-          <div className="h-[400px] bg-muted rounded-lg"></div>
+        <div className="space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1">
+              <div className="skeleton h-[400px] w-full"></div>
+            </div>
+            <div className="lg:col-span-2">
+              <div className="skeleton h-[400px] w-full"></div>
+            </div>
+          </div>
+          <div className="skeleton h-[200px] w-full"></div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="skeleton h-[300px] w-full"></div>
+            <div className="skeleton h-[300px] w-full"></div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="skeleton h-[300px] w-full"></div>
+            <div className="skeleton h-[300px] w-full"></div>
+          </div>
         </div>
       </div>
     );
@@ -96,9 +111,9 @@ export default function BudgetsPage() {
     <ErrorBoundary>
       <div className="space-y-8">
         {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="heading-responsive font-bold text-gradient">Budget Management</h1>
-          <p className="text-muted-foreground text-responsive">
+        <div className="dashboard-header">
+          <h1 className="gradient-text heading-responsive">Budget Management</h1>
+          <p className="text-muted-foreground text-responsive mt-2">
             Set budgets, track spending, and manage your financial goals
           </p>
         </div>
@@ -107,9 +122,9 @@ export default function BudgetsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Budget Form */}
           <div className="lg:col-span-1">
-            <div className="card-enhanced rounded-xl p-6">
+            <div className="dashboard-card">
               <div className="flex items-center space-x-2 mb-6">
-                <span className="text-2xl">➕</span>
+                <span className="stat-icon">➕</span>
                 <h2 className="text-xl font-semibold">Create New Budget</h2>
               </div>
               <BudgetForm />
@@ -118,9 +133,9 @@ export default function BudgetsPage() {
 
           {/* Budget Chart */}
           <div className="lg:col-span-2">
-            <div className="card-enhanced rounded-xl p-6">
+            <div className="chart-card">
               <div className="flex items-center space-x-2 mb-6">
-                <span className="text-2xl">📊</span>
+                <span className="stat-icon">📊</span>
                 <h2 className="text-xl font-semibold">Budget vs Spending Comparison</h2>
               </div>
               <BudgetComparisonChart key={refreshKey} />
@@ -129,9 +144,9 @@ export default function BudgetsPage() {
         </div>
 
         {/* Budget Summary */}
-        <div className="card-enhanced rounded-xl p-6">
+        <div className="dashboard-card">
           <div className="flex items-center space-x-2 mb-6">
-            <span className="text-2xl">📈</span>
+            <span className="stat-icon">📈</span>
             <h2 className="text-xl font-semibold">Budget Overview</h2>
           </div>
           <BudgetSummary />
@@ -140,18 +155,18 @@ export default function BudgetsPage() {
         {/* Active and Completed Budgets */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Active Budgets */}
-          <div className="card-enhanced rounded-xl p-6">
+          <div className="dashboard-card">
             <div className="flex items-center space-x-2 mb-6">
-              <span className="text-2xl">🎯</span>
+              <span className="stat-icon">🎯</span>
               <h2 className="text-xl font-semibold">Active Budgets</h2>
             </div>
             <BudgetList />
           </div>
           
           {/* Completed Budgets */}
-          <div className="card-enhanced rounded-xl p-6">
+          <div className="dashboard-card">
             <div className="flex items-center space-x-2 mb-6">
-              <span className="text-2xl">✅</span>
+              <span className="stat-icon">✅</span>
               <h2 className="text-xl font-semibold">Completed Budgets</h2>
             </div>
             <CompletedBudgets />
@@ -161,18 +176,18 @@ export default function BudgetsPage() {
         {/* Insights Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Budget Insights */}
-          <div className="card-enhanced rounded-xl p-6">
+          <div className="dashboard-card">
             <div className="flex items-center space-x-2 mb-6">
-              <span className="text-2xl">💡</span>
+              <span className="stat-icon">💡</span>
               <h2 className="text-xl font-semibold">Budget Insights</h2>
             </div>
             <BudgetInsights />
           </div>
           
           {/* Spending Insights */}
-          <div className="card-enhanced rounded-xl p-6">
+          <div className="dashboard-card">
             <div className="flex items-center space-x-2 mb-6">
-              <span className="text-2xl">📊</span>
+              <span className="stat-icon">📊</span>
               <h2 className="text-xl font-semibold">Spending Analysis</h2>
             </div>
             <SpendingInsights />

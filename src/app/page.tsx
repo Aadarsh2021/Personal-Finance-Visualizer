@@ -86,19 +86,24 @@ export default function DashboardPage() {
   };
 
   const StatCard = ({ title, value, type, icon }: { title: string; value: number; type: 'expense' | 'income' | 'balance'; icon: string; loading: boolean }) => (
-    <Card className="card-enhanced card-hover">
+    <Card className={cn(
+      'stat-card',
+      type === 'expense' ? 'stat-card-expense' : 
+      type === 'income' ? 'stat-card-income' : 
+      'stat-card-balance'
+    )}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-          <div className="text-2xl">{icon}</div>
+          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+          <div className="stat-icon">{icon}</div>
         </div>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="animate-shimmer h-8 bg-muted rounded"></div>
+          <div className="skeleton h-8 w-full"></div>
         ) : (
           <p className={cn(
-            "text-2xl font-bold",
+            "stat-value",
             type === 'expense' ? 'text-destructive' : 
             type === 'income' ? 'text-success' : 
             value >= 0 ? 'text-success' : 'text-destructive'
@@ -113,12 +118,12 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="text-center space-y-2">
-        <h1 className="heading-responsive font-bold text-gradient">Financial Dashboard</h1>
-        <p className="text-muted-foreground text-responsive">
+      <div className="dashboard-header">
+        <h1 className="gradient-text heading-responsive">Financial Dashboard</h1>
+        <p className="text-muted-foreground text-responsive mt-2">
           Track your finances and gain insights into your spending habits
         </p>
-        <div className="flex justify-center mt-4">
+        <div className="flex justify-center mt-6">
           <Export transactions={summary.recentTransactions} summary={summary} />
         </div>
       </div>
@@ -150,79 +155,88 @@ export default function DashboardPage() {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="card-enhanced">
+        <Card className="chart-card">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <span>📈</span>
+              <span className="stat-icon">📈</span>
               <span>Monthly Spending Trend</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <MonthlyChart key={refreshKey} />
+          <CardContent className="p-6">
+            {loading ? (
+              <div className="skeleton h-[300px] w-full"></div>
+            ) : (
+              <MonthlyChart key={refreshKey} />
+            )}
           </CardContent>
         </Card>
         
-        <Card className="card-enhanced">
+        <Card className="chart-card">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <span>🥧</span>
+              <span className="stat-icon">🥧</span>
               <span>Spending by Category</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <CategoryPieChart key={refreshKey} />
+          <CardContent className="p-6">
+            {loading ? (
+              <div className="skeleton h-[300px] w-full"></div>
+            ) : (
+              <CategoryPieChart key={refreshKey} />
+            )}
           </CardContent>
         </Card>
       </div>
 
       {/* Insights and Recent Transactions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="card-enhanced">
+        <Card className="dashboard-card">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <span>💡</span>
+              <span className="stat-icon">💡</span>
               <span>Spending Insights</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <SpendingInsights key={refreshKey} />
+          <CardContent className="p-6">
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="skeleton h-6 w-full"></div>
+                ))}
+              </div>
+            ) : (
+              <SpendingInsights key={refreshKey} />
+            )}
           </CardContent>
         </Card>
         
-        <Card className="card-enhanced">
+        <Card className="dashboard-card">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <span>📝</span>
+              <span className="stat-icon">📝</span>
               <span>Recent Transactions</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6">
             {loading ? (
-              <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="animate-shimmer h-12 bg-muted rounded"></div>
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="skeleton h-12 w-full"></div>
                 ))}
-              </div>
-            ) : summary.recentTransactions.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">
-                <p>No recent transactions</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {summary.recentTransactions.map((transaction) => (
-                  <div
-                    key={transaction._id}
-                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                  >
+                  <div key={transaction._id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors">
                     <div>
                       <p className="font-medium">{transaction.description}</p>
                       <p className="text-sm text-muted-foreground">
-                        {format(new Date(transaction.date), 'MMM d, yyyy')} • {transaction.category}
+                        {format(new Date(transaction.date), 'PPP')} • {transaction.category}
                       </p>
                     </div>
                     <p className={cn(
-                      "font-medium",
-                      transaction.amount < 0 ? "text-destructive" : "text-success"
+                      "font-bold",
+                      transaction.type === 'expense' ? 'text-destructive' : 'text-success'
                     )}>
                       {formatCurrency(transaction.amount)}
                     </p>

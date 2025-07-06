@@ -139,6 +139,118 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+
+  /* Enhanced animations */
+  @keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* Enhanced card styles */
+  .dashboard-card {
+    @apply relative overflow-hidden rounded-xl border border-border bg-card p-6 transition-all duration-300;
+    box-shadow: 0 4px 20px -4px hsl(var(--muted) / 0.3);
+  }
+
+  .dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 30px -4px hsl(var(--muted) / 0.4);
+  }
+
+  .dashboard-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    @apply bg-primary/50;
+    background-size: 200% 200%;
+    animation: gradientMove 4s ease infinite;
+  }
+
+  /* Stat card variants */
+  .stat-card {
+    @apply dashboard-card;
+  }
+
+  .stat-card-income {
+    @apply bg-background hover:bg-success/5;
+  }
+
+  .stat-card-expense {
+    @apply bg-background hover:bg-destructive/5;
+  }
+
+  .stat-card-balance {
+    @apply bg-background hover:bg-primary/5;
+  }
+
+  /* Chart card enhancements */
+  .chart-card {
+    @apply dashboard-card min-h-[400px];
+  }
+
+  /* Enhanced gradients */
+  .gradient-text {
+    @apply font-bold;
+    background: linear-gradient(135deg, 
+      hsl(var(--primary)), 
+      hsl(var(--primary) / 0.8) 50%,
+      hsl(var(--primary))
+    );
+    background-size: 200% 200%;
+    animation: gradientMove 4s ease infinite;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Dashboard header */
+  .dashboard-header {
+    @apply relative py-8 mb-8 text-center;
+  }
+
+  .dashboard-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 4px;
+    @apply bg-primary/20;
+  }
+
+  /* Stat value animations */
+  .stat-value {
+    @apply text-2xl font-bold;
+    animation: float 6s ease-in-out infinite;
+  }
+
+  /* Icon animations */
+  .stat-icon {
+    @apply text-2xl;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  /* Loading skeleton enhancements */
+  .skeleton {
+    @apply relative overflow-hidden bg-muted rounded-md animate-shimmer;
+  }
 }
 
 @layer components {
