@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/db';
 import { Transaction } from '@/models/Transaction';
 import { Budget } from '@/models/Budget';
+import { startOfDay } from 'date-fns';
 
 export async function GET(request: Request) {
   try {
@@ -18,12 +19,16 @@ export async function GET(request: Request) {
 
     await connectToDatabase();
 
+    // Ensure we're using the start of the day for consistent date comparisons
+    const startDate = startOfDay(new Date(start));
+    const endDate = startOfDay(new Date(end));
+
     const monthlyData = await Transaction.aggregate([
       {
         $match: {
           date: {
-            $gte: new Date(start),
-            $lte: new Date(end),
+            $gte: startDate,
+            $lte: endDate,
           },
         },
       },

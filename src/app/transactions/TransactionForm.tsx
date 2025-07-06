@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { transactionCategories } from '@/types';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 const formSchema = z.object({
   amount: z.string()
@@ -30,7 +31,14 @@ const formSchema = z.object({
     })
     .refine((val) => val !== 0, 'Amount cannot be zero'),
   description: z.string().min(1, 'Description is required'),
-  date: z.string().min(1, 'Date is required'),
+  date: z.string()
+    .min(1, 'Date is required')
+    .refine((date) => {
+      const selectedDate = new Date(date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return selectedDate <= today;
+    }, 'Cannot select future dates'),
   category: z.string().min(1, 'Category is required'),
   type: z.enum(['income', 'expense']),
 });
@@ -50,10 +58,13 @@ export default function TransactionForm() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
 
+  // Get today's date in YYYY-MM-DD format for the max attribute
+  const today = format(new Date(), 'yyyy-MM-dd');
+
   const form = useForm<RawFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      date: new Date().toISOString().split('T')[0],
+      date: today,
       type: 'expense',
       category: '',
       description: '',
@@ -97,7 +108,7 @@ export default function TransactionForm() {
 
       console.log('Transaction created successfully');
       form.reset({
-        date: new Date().toISOString().split('T')[0],
+        date: today,
         type: 'expense',
         category: '',
         description: '',
@@ -190,6 +201,7 @@ export default function TransactionForm() {
         <Input
           id="date"
           type="date"
+          max={today}
           {...form.register('date')}
           className={cn(
             shouldShowError('date') && "border-destructive focus-visible:ring-destructive/20"
@@ -197,7 +209,7 @@ export default function TransactionForm() {
         />
         {shouldShowError('date') && (
           <p className="text-destructive text-xs">{form.formState.errors.date?.message}</p>
-          )}
+        )}
       </div>
 
       <div className="space-y-2">

@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { TimePeriodSelect, TIME_PERIODS } from '@/components/ui/time-period-select';
 
 interface MonthlyData {
   month: string;
@@ -49,6 +50,7 @@ export function MonthlyChart() {
   const [data, setData] = useState<MonthlyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [timePeriod, setTimePeriod] = useState('1m');
 
   useEffect(() => {
     setMounted(true);
@@ -58,7 +60,7 @@ export function MonthlyChart() {
     if (mounted) {
       fetchMonthlyData();
     }
-  }, [mounted]);
+  }, [mounted, timePeriod]);
 
   // Listen for transaction updates
   useEffect(() => {
@@ -81,12 +83,11 @@ export function MonthlyChart() {
     try {
       setLoading(true);
       const endDate = new Date();
-      const startDate = subMonths(endDate, 3);
+      const months = TIME_PERIODS.find(p => p.value === timePeriod)?.months || 1;
+      const startDate = subMonths(endDate, months);
 
       const response = await fetch(
-        `/api/statistics?start=${startOfMonth(startDate).toISOString()}&end=${endOfMonth(
-          endDate
-        ).toISOString()}`
+        `/api/statistics?start=${startOfMonth(startDate).toISOString()}&end=${endDate.toISOString()}`
       );
 
       if (!response.ok) {
@@ -123,8 +124,9 @@ export function MonthlyChart() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Monthly Overview</CardTitle>
+        <TimePeriodSelect value={timePeriod} onValueChange={setTimePeriod} />
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
@@ -151,6 +153,7 @@ export function CategoryPieChart() {
   const [data, setData] = useState<CategoryData[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [timePeriod, setTimePeriod] = useState('1m');
 
   useEffect(() => {
     setMounted(true);
@@ -160,7 +163,7 @@ export function CategoryPieChart() {
     if (mounted) {
       fetchCategoryData();
     }
-  }, [mounted]);
+  }, [mounted, timePeriod]);
 
   // Listen for transaction updates
   useEffect(() => {
@@ -183,10 +186,11 @@ export function CategoryPieChart() {
     try {
       setLoading(true);
       const endDate = new Date();
-      const startDate = subMonths(endDate, 3);
+      const months = TIME_PERIODS.find(p => p.value === timePeriod)?.months || 1;
+      const startDate = subMonths(endDate, months);
 
       const response = await fetch(
-        `/api/statistics/categories?start=${startDate.toISOString()}&end=${endDate.toISOString()}`
+        `/api/statistics/categories?start=${startOfMonth(startDate).toISOString()}&end=${endDate.toISOString()}`
       );
 
       if (!response.ok) {
@@ -208,8 +212,9 @@ export function CategoryPieChart() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Expense Categories</CardTitle>
+        <TimePeriodSelect value={timePeriod} onValueChange={setTimePeriod} />
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
@@ -243,6 +248,7 @@ export function BudgetComparisonChart() {
   const [data, setData] = useState<BudgetComparisonData[]>([]);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
+  const [timePeriod, setTimePeriod] = useState('1m');
 
   useEffect(() => {
     setMounted(true);
@@ -252,7 +258,7 @@ export function BudgetComparisonChart() {
     if (mounted) {
       fetchBudgetData();
     }
-  }, [mounted]);
+  }, [mounted, timePeriod]);
 
   // Listen for transaction and budget updates
   useEffect(() => {
@@ -280,35 +286,45 @@ export function BudgetComparisonChart() {
   async function fetchBudgetData() {
     try {
       setLoading(true);
-      const currentDate = new Date();
-      const month = currentDate.getMonth() + 1;
-      const year = currentDate.getFullYear();
+      const endDate = new Date();
+      const months = TIME_PERIODS.find(p => p.value === timePeriod)?.months || 1;
+      const startDate = subMonths(endDate, months);
 
       const response = await fetch(
-        `/api/statistics/budget-comparison?month=${month}&year=${year}`
+        `/api/statistics/budget-comparison?start=${startOfMonth(startDate).toISOString()}&end=${endDate.toISOString()}`
       );
 
       if (!response.ok) {
-        throw new Error('Failed to fetch budget data');
+        throw new Error('Failed to fetch budget comparison data');
       }
 
       const budgetData = await response.json();
       setData(budgetData);
     } catch (error) {
-      console.error('Error fetching budget data:', error);
+      console.error('Error fetching budget comparison data:', error);
     } finally {
       setLoading(false);
     }
   }
 
-  if (loading) {
-    return <div>Loading chart...</div>;
+  if (!mounted || loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Budget vs Actual</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LoadingChart />
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Budget vs Actual</CardTitle>
+        <TimePeriodSelect value={timePeriod} onValueChange={setTimePeriod} />
       </CardHeader>
       <CardContent>
         <div className="h-[300px]">
@@ -317,13 +333,10 @@ export function BudgetComparisonChart() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="category" />
               <YAxis />
-              <Tooltip
-                formatter={(value: number) => `$${value.toFixed(2)}`}
-                labelFormatter={(label) => `Category: ${label}`}
-              />
-              <Legend />
-              <Bar dataKey="budget" name="Budget" fill="#8884d8" />
-              <Bar dataKey="actual" name="Actual" fill="#82ca9d" />
+              <Tooltip formatter={(value: number) => `$${value.toFixed(2)}`} />
+              <Bar dataKey="budget" fill="#4ade80" name="Budget" />
+              <Bar dataKey="actual" fill="#f87171" name="Actual" />
+              <Bar dataKey="remaining" fill="#60a5fa" name="Remaining" />
             </BarChart>
           </ResponsiveContainer>
         </div>
