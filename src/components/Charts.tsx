@@ -134,25 +134,25 @@ export function MonthlyChart() {
           value={timeRange}
           onChange={setTimeRange}
         />
-      </CardHeader>
-      <CardContent>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="month" />
-              <YAxis />
+                <YAxis />
               <Tooltip
                 formatter={(value: number) => [`$${value.toFixed(2)}`, '']}
                 labelFormatter={(label) => `Month: ${label}`}
               />
               <Bar dataKey="expenses" fill="#ef4444" name="Expenses" />
               <Bar dataKey="income" fill="#22c55e" name="Income" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
-    </Card>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
   );
 }
 
@@ -222,36 +222,36 @@ export function CategoryPieChart() {
   }
 
   return (
-    <Card>
+      <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Expense Categories</CardTitle>
         <TimePeriodSelector
           value={timeRange}
           onChange={setTimeRange}
         />
-      </CardHeader>
-      <CardContent>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
                 data={data}
                 dataKey="amount"
                 nameKey="category"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
                 fill="#8884d8"
                 label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-              >
+                >
                 {data.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
               <Tooltip formatter={(value: number) => `$${value.toFixed(2)}`} />
               <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+              </PieChart>
+            </ResponsiveContainer>
         </div>
       </CardContent>
     </Card>
@@ -439,7 +439,7 @@ export function SpendingInsights() {
         ) : (
           <div className="text-sm text-gray-500">
             No insights available yet. Add more transactions to see spending patterns.
-          </div>
+    </div>
         )}
       </CardContent>
     </Card>

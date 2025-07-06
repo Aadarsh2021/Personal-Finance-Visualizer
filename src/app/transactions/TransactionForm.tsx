@@ -169,7 +169,7 @@ export default function TransactionForm() {
         <Label htmlFor="description" className="text-sm font-medium">
           Description
         </Label>
-        <Input
+                <Input
           id="description"
           type="text"
           placeholder="Enter transaction description"
@@ -177,10 +177,10 @@ export default function TransactionForm() {
           className={cn(
             shouldShowError('description') && "border-destructive focus-visible:ring-destructive/20"
           )}
-        />
+                />
         {shouldShowError('description') && (
           <p className="text-destructive text-xs">{form.formState.errors.description?.message}</p>
-        )}
+          )}
       </div>
 
       <div className="space-y-2">
@@ -197,7 +197,7 @@ export default function TransactionForm() {
         />
         {shouldShowError('date') && (
           <p className="text-destructive text-xs">{form.formState.errors.date?.message}</p>
-        )}
+          )}
       </div>
 
       <div className="space-y-2">
@@ -215,18 +215,18 @@ export default function TransactionForm() {
             )}
           >
             <SelectValue placeholder="Select a category" />
-          </SelectTrigger>
-          <SelectContent>
-            {transactionCategories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+                  </SelectTrigger>
+                <SelectContent>
+                  {transactionCategories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
         {shouldShowError('category') && (
           <p className="text-destructive text-xs">{form.formState.errors.category?.message}</p>
-        )}
+          )}
       </div>
 
       <div className="space-y-2">
@@ -239,7 +239,7 @@ export default function TransactionForm() {
         >
           <SelectTrigger 
             id="type"
-            className={cn(
+                      className={cn(
               shouldShowError('type') && "border-destructive focus-visible:ring-destructive/20"
             )}
           >
@@ -252,7 +252,7 @@ export default function TransactionForm() {
         </Select>
         {shouldShowError('type') && (
           <p className="text-destructive text-xs">{form.formState.errors.type?.message}</p>
-        )}
+          )}
       </div>
 
       <Button 
@@ -269,7 +269,7 @@ export default function TransactionForm() {
         ) : (
           'Create Transaction'
         )}
-      </Button>
-    </form>
+        </Button>
+      </form>
   );
 } 

@@ -56,6 +56,6 @@ budgetSchema.post('save', function(error: any, doc: any, next: any) {
   }
 });
 
-export const Budget = mongoose.models.Budget || mongoose.model('Budget', budgetSchema);
+export const Budget = mongoose.models.Budget || mongoose.model('Budget', budgetSchema); 
 
 export default Budget; 

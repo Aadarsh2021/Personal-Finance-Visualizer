@@ -107,9 +107,9 @@ export default function DashboardPage() {
             ${value.toFixed(2)}
           </p>
         )}
-      </CardContent>
-    </Card>
-  );
+          </CardContent>
+        </Card>
+    );
 
   return (
     <div className="space-y-8">
@@ -163,7 +163,7 @@ export default function DashboardPage() {
             <MonthlyChart />
           </CardContent>
         </Card>
-        
+
         <Card className="card-enhanced">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -190,7 +190,7 @@ export default function DashboardPage() {
             <SpendingInsights />
           </CardContent>
         </Card>
-        
+
         <Card className="card-enhanced">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
@@ -260,7 +260,7 @@ export default function DashboardPage() {
                     ))}
                   </TableBody>
                 </Table>
-              </div>
+            </div>
             )}
           </CardContent>
         </Card>
