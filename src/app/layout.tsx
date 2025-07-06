@@ -35,7 +35,7 @@ export default function RootLayout({
         "font-sans antialiased"
       )}>
         <div className="relative min-h-screen flex flex-col">
-          <Navigation />
+        <Navigation />
           <main className="flex-1 container mx-auto px-4 py-6 md:py-8 lg:py-10">
             <div className="max-w-7xl mx-auto">
               {children}
