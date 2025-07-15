@@ -45,18 +45,21 @@ This application demonstrates a complete implementation of the Personal Finance 
 
 ## 🚀 **Live Demo**
 
-**Vercel Deployment URL**: [Your Vercel URL will go here]
+**Vercel Deployment URL**: (https://personal-finance-visualizer-33l1.vercel.app/)
 
 ## 📱 **Screenshots**
 
 ### Dashboard
 ![Dashboard showing financial overview, charts, and recent transactions]
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/a41577de-d1c1-4306-aaed-506e573b3b1e" />
 
 ### Transaction Management
 ![Transaction form and list with categories and real-time updates]
+<img width="1919" height="864" alt="image" src="https://github.com/user-attachments/assets/3c12db07-19c0-429c-a432-de6cb66640da" />
 
 ### Budget Management
 ![Budget creation, tracking, and comparison charts]
+<img width="1919" height="1079" alt="image" src="https://github.com/user-attachments/assets/19fd129e-0528-45ce-8c94-8adde8a441e3" />
 
 ## 🏗️ **Project Structure**
 
